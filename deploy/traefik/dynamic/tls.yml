@@ -1,0 +1,19 @@
+# Certificato di default per l'entrypoint websecure. Senza questo, Traefik
+# ricade sul proprio certificato self-signed interno "TRAEFIK DEFAULT CERT" —
+# che viene rigenerato (nuova chiave, nuovo seriale) ad ogni reload della
+# configurazione dinamica, cioe' ogni volta che un desktop viene creato,
+# avviato, fermato o eliminato (ognuna di queste operazioni registra o
+# rimuove un router Docker). Il certificato cambiando invalida la fiducia che
+# il browser aveva gia' dato: le connessioni gia' aperte (in particolare i
+# websocket di streaming di un desktop aperto in un'altra scheda) smettono
+# di funzionare finche' non si ricarica la pagina e si riaccetta il nuovo
+# certificato — e' esattamente il "schermo nero, errore websocket proxy"
+# osservato in pratica. cert.pem/key.pem sono generati una sola volta (da
+# install.sh, o a mano per un'installazione manuale) e restano stabili per
+# tutta la vita dell'installazione.
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /etc/traefik/certs/cert.pem
+        keyFile: /etc/traefik/certs/key.pem

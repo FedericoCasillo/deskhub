@@ -1,0 +1,51 @@
+name: deskhub-traefik
+
+services:
+  traefik:
+    # Default: snapshot pinnato per digest pubblicato dal progetto stesso su
+    # GHCR (stesso contenuto di traefik:v3.7 al 2026-08-25), cosi'
+    # l'installazione dipende solo da GitHub e non da Docker Hub. Pinnato per
+    # digest e non per tag: un tag e' riscrivibile (un push accidentale sotto
+    # lo stesso tag cambierebbe silenziosamente cosa scaricano i client), un
+    # digest no. Per usare invece l'ultima Traefik ufficiale, imposta
+    # TRAEFIK_IMAGE=traefik:v3.7 (o una versione piu' recente) in .env.
+    image: ${TRAEFIK_IMAGE:-ghcr.io/federicocasillo/deskhub-traefik@sha256:2b459431e350cfb7a5fd1a432f3bf7ad7787c36ef557c5344b8125e0489de589}
+    container_name: deskhub-traefik
+    restart: unless-stopped
+
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=${PROXY_NETWORK:-deskhub-proxy}
+      - --providers.file.directory=/etc/traefik/dynamic
+
+      # Routing dinamico verso i desktop: il manager espone la configurazione
+      # (una route per ogni sessione /session/<token>/ valida in quel
+      # momento) e Traefik la rilegge a intervalli brevi. Il segreto in
+      # query string e' condiviso solo tra questi due servizi (mai esposto
+      # da nessun router pubblico) — protegge l'endpoint, che altrimenti
+      # rivelerebbe in chiaro i token di sessione attivi.
+      - --providers.http.endpoint=http://deskhub:8000/internal/traefik-config?secret=${TRAEFIK_INTERNAL_SECRET}
+      - --providers.http.pollInterval=2s
+
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.http.tls=true
+
+      - --log.level=INFO
+      - --accesslog=true
+
+    ports:
+      - "${TRAEFIK_HTTPS_PORT:-8443}:443"
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./dynamic:/etc/traefik/dynamic:ro
+      - ./certs:/etc/traefik/certs:ro
+
+    networks:
+      - deskhub-proxy
+
+networks:
+  deskhub-proxy:
+    external: true
+    name: ${PROXY_NETWORK:-deskhub-proxy}

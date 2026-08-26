@@ -1,0 +1,9 @@
+frontend/node_modules
+frontend/dist
+backend/**/__pycache__
+.env
+.git
+deploy
+install.sh
+README.md
+LICENSE

@@ -1,0 +1,62 @@
+name: deskhub
+
+services:
+  manager:
+    build: .
+    container_name: deskhub
+    restart: unless-stopped
+
+    environment:
+      - DATA_DIR=${DATA_DIR:?Imposta DATA_DIR in .env (cartella dedicata ai dati dei desktop)}
+      - WEBTOP_IMAGE=${WEBTOP_IMAGE:-deskhub-webtop:latest}
+      - WEBTOP_SOURCE=${WEBTOP_SOURCE:-pull}
+      - PROXY_NETWORK=${PROXY_NETWORK:-deskhub-proxy}
+      # Usate solo al primissimo avvio (nessun utente ancora esistente) per
+      # creare l'amministratore iniziale della webapp; ignorate in seguito.
+      - MANAGER_INITIAL_ADMIN_USER=${MANAGER_INITIAL_ADMIN_USER:-}
+      - MANAGER_INITIAL_ADMIN_PASSWORD=${MANAGER_INITIAL_ADMIN_PASSWORD:-}
+      # Segreto condiviso con Traefik (deploy/traefik/compose.yml) per
+      # l'endpoint interno del routing dinamico verso i desktop.
+      - TRAEFIK_INTERNAL_SECRET=${TRAEFIK_INTERNAL_SECRET:?Imposta TRAEFIK_INTERNAL_SECRET in .env}
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DATA_DIR:?Imposta DATA_DIR in .env (cartella dedicata ai dati dei desktop)}:${DATA_DIR}
+
+    networks:
+      - deskhub-proxy
+
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${PROXY_NETWORK:-deskhub-proxy}
+
+      - traefik.http.routers.manager.rule=PathPrefix(`/manager`)
+      - traefik.http.routers.manager.entrypoints=websecure
+      - traefik.http.routers.manager.tls=true
+      - traefik.http.routers.manager.middlewares=manager-stripprefix
+      - traefik.http.routers.manager.service=manager
+
+      # L'autenticazione (login, utenti, ruoli) e' gestita dalla webapp
+      # stessa, non piu' da Traefik: niente Basic Auth qui.
+      - traefik.http.middlewares.manager-stripprefix.stripprefix.prefixes=/manager
+
+      - traefik.http.services.manager.loadbalancer.server.port=8000
+
+      # La root (`/`) e' l'unica cosa che questa installazione serve: reindirizza
+      # subito a /manager/ invece di rispondere 404. Priorita' bassa esplicita
+      # cosi' non rischia mai di scavalcare la rotta piu' specifica sopra
+      # (PathPrefix `/manager`) ne' quelle dinamiche verso i desktop.
+      - traefik.http.routers.manager-root.rule=Path(`/`)
+      - traefik.http.routers.manager-root.entrypoints=websecure
+      - traefik.http.routers.manager-root.tls=true
+      - traefik.http.routers.manager-root.priority=1
+      - traefik.http.routers.manager-root.middlewares=manager-redirect-root
+      - traefik.http.routers.manager-root.service=manager
+
+      - traefik.http.middlewares.manager-redirect-root.redirectregex.regex=^(https?://[^/]*)/$$
+      - traefik.http.middlewares.manager-redirect-root.redirectregex.replacement=$${1}/manager/
+
+networks:
+  deskhub-proxy:
+    external: true
+    name: ${PROXY_NETWORK:-deskhub-proxy}
