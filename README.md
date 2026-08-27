@@ -62,7 +62,7 @@ server, i dati restano tuoi, il costo è solo quello dell'hardware.
 
 **📦 Distribuzione**
 - Un solo comando (`install.sh`) prepara host, rete, reverse proxy e webapp da zero
-- Nessuna dipendenza da Docker Hub o da registri upstream a runtime: tutto pinnato per digest sulla tua GHCR (vedi [Robustezza e auto-contenimento](#robustezza-e-auto-contenimento))
+- Nessuna dipendenza da Docker Hub o da registri upstream a runtime: tutto pinnato per digest su GHCR (vedi [Robustezza e auto-contenimento](#robustezza-e-auto-contenimento))
 
 ## Avvio rapido
 
@@ -131,8 +131,8 @@ esportare prima di lanciare lo script): `TARGET_DIR`, `DATA_DIR`,
    compose build` prima del resto):
 
    ```bash
-   docker pull ghcr.io/federicocasillo/deskhub-manager@sha256:30ec269d23b75773ea12114fa5dc021ab270211b5e045829da456b411b748b48
-   docker tag ghcr.io/federicocasillo/deskhub-manager@sha256:30ec269d23b75773ea12114fa5dc021ab270211b5e045829da456b411b748b48 deskhub-manager:latest
+   docker pull ghcr.io/federicocasillo/deskhub-manager@sha256:5622031ca3f6576c1220e2c06819b4addbf41cc4708eaa2ac7b96a748a911445
+   docker tag ghcr.io/federicocasillo/deskhub-manager@sha256:5622031ca3f6576c1220e2c06819b4addbf41cc4708eaa2ac7b96a748a911445 deskhub-manager:latest
    docker compose up -d
    ```
 
@@ -245,7 +245,7 @@ Questo significa che se LinuxServer.io cambiasse, spostasse o ritirasse
 l'immagine Webtop ufficiale, o se una nuova versione di Traefik introducesse
 una breaking change, **questa installazione continua a funzionare
 comunque**: a runtime non dipende da loro, solo dagli snapshot già scaricati
-sulla tua GHCR.
+da GHCR.
 
 Il `Dockerfile` in `webtop-image/` (per il desktop) e quello nella radice
 del repo (per il manager stesso) restano comunque nel repo per trasparenza

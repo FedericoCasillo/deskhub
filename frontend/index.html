@@ -4,7 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DeskHub</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text x=%2250%25%22 y=%2250%25%22 font-size=%2278%22 text-anchor=%22middle%22 dominant-baseline=%22central%22>🖥️</text></svg>" />
+    <!-- Stessa icona (byte per byte) usata dentro i container desktop, vedi
+         webtop-image/deskhub-icon.png: le due copie vanno tenute allineate
+         a mano perche' i due Dockerfile hanno contesti di build separati. -->
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="apple-touch-icon" href="/icon.png" />
+    <!-- Colore esplicito per la scheda del browser: senza questo, Safari su
+         iPad puo' "confondere" lo sfondo di questa scheda con quello scuro
+         dichiarato dal manifest della UI del desktop remoto quando si passa
+         dall'una all'altra scheda (bug noto di WebKit sul tab-tinting). -->
+    <meta name="theme-color" content="#020617" />
   </head>
   <body>
     <div id="root"></div>

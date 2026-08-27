@@ -45,6 +45,16 @@ export default function CreateDesktopModal({ onClose, onSubmit }) {
   }, []);
 
   const selectedOrphan = orphans.find((o) => o.id === reuseId);
+  // Riusando una cartella di configurazione esistente il nome e' quello gia'
+  // associato a quel desktop e non si puo' cambiare, altrimenti si perde il
+  // legame tra l'identita' mostrata in dashboard e i dati che la cartella
+  // porta con se'. Se per caso quella cartella non ha (ancora) un nome
+  // tracciato, si ricade sull'input libero come per un desktop nuovo.
+  const nameLocked = Boolean(selectedOrphan?.name);
+
+  useEffect(() => {
+    if (nameLocked) setName(selectedOrphan.name);
+  }, [nameLocked, selectedOrphan?.name]);
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -76,7 +86,8 @@ export default function CreateDesktopModal({ onClose, onSubmit }) {
               <option value="">Nuovo ID automatico</option>
               {orphans.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.warning ? "⚠ " : ""}ID {o.id}
+                  {o.warning ? "⚠ " : ""}
+                  {o.name ? `${o.name} — ` : ""}ID {o.id}
                 </option>
               ))}
             </select>
@@ -106,7 +117,8 @@ export default function CreateDesktopModal({ onClose, onSubmit }) {
             placeholder='es. "web", "ufficio"'
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className={inputClass}
+            disabled={nameLocked}
+            className={`${inputClass} ${nameLocked ? "cursor-not-allowed opacity-60" : ""}`}
           />
         </Field>
 

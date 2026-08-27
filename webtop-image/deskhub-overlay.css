@@ -1,0 +1,56 @@
+/*
+ * Overlay di branding/layout DeskHub per la UI Selkies del desktop remoto.
+ * File nostro, separato dai sorgenti di Selkies (Mozilla Public License
+ * 2.0): viene solo affiancato via nginx sub_filter (vedi
+ * webtop-image/nginx-default.conf), mai iniettato dentro i loro file, cosi'
+ * non tocchiamo "Covered Software" e non ereditiamo obblighi MPL (e' un
+ * "Larger Work", esplicitamente permesso senza condizioni aggiuntive).
+ */
+
+/* Via lo switch tema chiaro/scuro: nessuna opzione dedicata lato Selkies
+   per nasconderlo, non e' condizionato da nessuna delle SELKIES_UI_*. */
+.theme-toggle {
+  display: none !important;
+}
+
+/* Nella riga di pulsanti rapidi (stream video, audio out, microfono,
+   gamepad) restano solo audio out e microfono: gli altri due non hanno un
+   proprio flag dedicato (solo SELKIES_UI_SHOW_CORE_BUTTONS, che li
+   nasconde tutti e 4 insieme). E' un flex con justify-content:space-around,
+   quindi tolti due bottoni i restanti due si ricentrano da soli, nessun
+   vuoto residuo. */
+.sidebar-action-buttons .action-button:nth-child(1),
+.sidebar-action-buttons .action-button:nth-child(4) {
+  display: none !important;
+}
+
+/* Ritmo verticale coerente in tutta la sidebar: stessa divisione 15px/15px
+   (padding prima della linea, margine dopo) sia sotto il titolo che sotto i
+   pulsanti audio, cosi' la linea e' sempre centrata nello spazio vuoto
+   invece di stare piu' vicina al contenuto sopra (di base 10px/20px). */
+.sidebar-header,
+.sidebar-action-buttons {
+  padding-top: 0 !important;
+  padding-bottom: 15px !important;
+  margin-bottom: 15px !important;
+}
+
+/* Titolo "DeskHub" centrato nell'intestazione, non piu' a sinistra: col
+   logo nascosto (sopra) l'unico altro elemento del flex e' .header-controls
+   (il contenitore dello switch tema, gia' nascosto anch'esso) — lo
+   nascondiamo del tutto cosi' non conta piu' come elemento del flex, e la
+   riga si dispone centrata sul titolo, l'unica cosa rimasta. */
+.sidebar-header {
+  justify-content: center !important;
+}
+.sidebar-header > .header-controls {
+  display: none !important;
+}
+
+/* Solo il titolo "DeskHub" nell'intestazione della sidebar, niente icona:
+   il primo <a> di .sidebar-header e' quello che contiene il logo originale
+   di Selkies, il secondo quello col titolo (<h2>). Nascondiamo solo il
+   primo. */
+.sidebar-header > a:nth-child(1) {
+  display: none;
+}

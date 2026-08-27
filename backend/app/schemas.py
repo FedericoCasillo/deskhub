@@ -39,6 +39,7 @@ class DesktopInfo(BaseModel):
 
 class OrphanEntry(BaseModel):
     id: str
+    name: Optional[str] = None
     warning: Optional[str] = None
 
 

@@ -13,7 +13,7 @@ export default function UsageBar({ label, percent, tail }) {
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800">
         {hasPercent && <div className={`h-full ${tone} transition-all`} style={{ width: `${pct}%` }} />}
       </div>
-      <span className="w-20 shrink-0 text-right font-mono text-[11px]">{tail}</span>
+      <span className="shrink-0 text-right font-mono text-[11px]">{tail}</span>
     </div>
   );
 }

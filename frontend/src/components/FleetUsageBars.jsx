@@ -34,7 +34,9 @@ export default function FleetUsageBars() {
   // stesso trattamento visivo di una card che aspetta i suoi dati.
   const runningCount = usage?.running_count ?? 0;
   const cpuPercent = usage?.cpu_percent ?? null;
-  const cpuTail = cpuPercent == null ? "—" : `${Math.round(cpuPercent)}%`;
+  const maxCpus = usage?.max_cpus ?? 0;
+  const cpuTail =
+    cpuPercent == null ? "—" : `${Math.round(cpuPercent)}%${maxCpus > 0 ? ` / ${maxCpus}` : ""}`;
 
   const memUsedMb = usage?.mem_used_mb ?? null;
   const maxRamMb = usage?.max_ram_mb ?? 0;

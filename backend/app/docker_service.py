@@ -150,7 +150,10 @@ def find_orphan_ids() -> list[str]:
 
 
 def orphan_details() -> list[dict]:
-    return [{"id": i, "warning": config_dir_issue(i)} for i in find_orphan_ids()]
+    return [
+        {"id": i, "name": desktops_store.get_name(i), "warning": config_dir_issue(i)}
+        for i in find_orphan_ids()
+    ]
 
 
 def list_running_ids() -> list[str]:

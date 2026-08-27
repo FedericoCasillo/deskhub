@@ -114,15 +114,22 @@ async def create_desktop(payload: CreateDesktopRequest, admin: dict = Depends(re
         if payload.reuse_id not in docker_service.find_orphan_ids():
             raise HTTPException(400, "L'ID selezionato non e' disponibile per il riutilizzo.")
         target_id = payload.reuse_id
+        # Il nome resta quello del desktop originale a cui appartiene questa
+        # cartella di configurazione: non e' rinominabile in fase di
+        # ricreazione, altrimenti si perderebbe il legame con l'identita'
+        # gia' associata a quei dati. Fallback al nome inviato solo per il
+        # caso limite di una cartella orfana mai tracciata nello store.
+        name = desktops_store.get_name(target_id) or payload.name
     else:
         target_id = docker_service.generate_slug(payload.owner, payload.name)
+        name = payload.name
 
     defaults = settings_store.get()
     max_ram_mb = payload.max_ram_mb if payload.max_ram_mb is not None else defaults["default_max_ram_mb"]
     max_cpus = payload.max_cpus if payload.max_cpus is not None else defaults["default_max_cpus"]
 
     desktops_store.set_owner(target_id, payload.owner)
-    desktops_store.set_name(target_id, payload.name)
+    desktops_store.set_name(target_id, name)
     desktops_store.set_limits(target_id, max_ram_mb, max_cpus)
 
     job_id = job_manager.start(
