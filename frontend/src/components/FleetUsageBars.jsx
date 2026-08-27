@@ -35,6 +35,13 @@ export default function FleetUsageBars() {
   const runningCount = usage?.running_count ?? 0;
   const cpuPercent = usage?.cpu_percent ?? null;
   const maxCpus = usage?.max_cpus ?? 0;
+  // cpu_percent e' la somma dei cpu_percent dei singoli desktop, ognuno
+  // relativo a un core intero (Docker): con 2 desktop assegnati a 1 core
+  // ciascuno e all'80% a testa il totale e' 160%. Per la barra va rapportato
+  // a maxCpus (somma dei core assegnati), altrimenti supera sempre 100 non
+  // appena gira piu' di un desktop e la barra sembra sempre piena/rossa
+  // anche quando la flotta e' ben sotto il suo budget totale.
+  const cpuBarPercent = cpuPercent != null && maxCpus > 0 ? (cpuPercent / maxCpus) * 100 : cpuPercent;
   const cpuTail =
     cpuPercent == null ? "—" : `${Math.round(cpuPercent)}%${maxCpus > 0 ? ` / ${maxCpus}` : ""}`;
 
@@ -48,7 +55,7 @@ export default function FleetUsageBars() {
       <span className="shrink-0 text-xs text-slate-500">Totale ({runningCount})</span>
       <div className="flex flex-col gap-1.5 sm:min-w-0 sm:flex-1 sm:flex-row sm:items-center sm:gap-3">
         <div className="min-w-0 sm:flex-1">
-          <UsageBar label="CPU" percent={cpuPercent} tail={cpuTail} />
+          <UsageBar label="CPU" percent={cpuBarPercent} tail={cpuTail} />
         </div>
         <div className="min-w-0 sm:flex-1">
           <UsageBar label="RAM" percent={memPercent} tail={memTail} />

@@ -141,6 +141,13 @@ export default function DesktopCard({ desktop, isAdmin, onStart, onStop, onResta
   }
 
   const cpuPercent = usage?.cpu_percent ?? null;
+  // cpu_percent di Docker e' relativo a un core intero (un desktop che usa
+  // 2 core pieni mostra ~200%), non al limite assegnato al desktop: per la
+  // barra (colore/riempimento) va rapportato a max_cpus, non usato grezzo,
+  // altrimenti un limite > 1 core la fa apparire piena/rossa molto prima
+  // del reale. Il testo invece mostra il valore grezzo apposta, e' quello
+  // il dato utile da leggere.
+  const cpuBarPercent = cpuPercent != null && max_cpus > 0 ? (cpuPercent / max_cpus) * 100 : cpuPercent;
   const cpuTail =
     cpuPercent == null ? "—" : max_cpus > 0 ? `${Math.round(cpuPercent)}% / ${max_cpus}` : `${Math.round(cpuPercent)}%`;
 
@@ -163,7 +170,7 @@ export default function DesktopCard({ desktop, isAdmin, onStart, onStop, onResta
 
       {status === "RUNNING" && (
         <div className="flex flex-col gap-1.5">
-          <UsageBar label="CPU" percent={cpuPercent} tail={cpuTail} />
+          <UsageBar label="CPU" percent={cpuBarPercent} tail={cpuTail} />
           <UsageBar label="RAM" percent={memPercent} tail={memTail} />
         </div>
       )}
