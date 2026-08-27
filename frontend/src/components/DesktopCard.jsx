@@ -147,7 +147,7 @@ export default function DesktopCard({ desktop, isAdmin, onStart, onStop, onResta
   // altrimenti un limite > 1 core la fa apparire piena/rossa molto prima
   // del reale. Il testo invece mostra il valore grezzo apposta, e' quello
   // il dato utile da leggere.
-  const cpuBarPercent = cpuPercent != null && max_cpus > 0 ? (cpuPercent / max_cpus) * 100 : cpuPercent;
+  const cpuBarPercent = cpuPercent != null && max_cpus > 0 ? cpuPercent / max_cpus : cpuPercent;
   const cpuTail =
     cpuPercent == null ? "—" : max_cpus > 0 ? `${Math.round(cpuPercent)}% / ${max_cpus}` : `${Math.round(cpuPercent)}%`;
 

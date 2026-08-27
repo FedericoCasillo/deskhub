@@ -41,7 +41,7 @@ export default function FleetUsageBars() {
   // a maxCpus (somma dei core assegnati), altrimenti supera sempre 100 non
   // appena gira piu' di un desktop e la barra sembra sempre piena/rossa
   // anche quando la flotta e' ben sotto il suo budget totale.
-  const cpuBarPercent = cpuPercent != null && maxCpus > 0 ? (cpuPercent / maxCpus) * 100 : cpuPercent;
+  const cpuBarPercent = cpuPercent != null && maxCpus > 0 ? cpuPercent / maxCpus : cpuPercent;
   const cpuTail =
     cpuPercent == null ? "—" : `${Math.round(cpuPercent)}%${maxCpus > 0 ? ` / ${maxCpus}` : ""}`;
 
