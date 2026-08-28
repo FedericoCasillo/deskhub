@@ -186,25 +186,8 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
   non necessarie (condivisione, gamepad, secondo schermo, ecc.) per
   un'esperienza più snella. Nessuna affiliazione ufficiale con
   LinuxServer.io: è una build derivata, redistribuita nel rispetto della
-  licenza open source del progetto originale.
-
-```
-                    ┌─────────────────────────────┐
-   browser  ───────▶│   Traefik (TLS, routing      │
-                     │   dinamico per sessione)     │
-                     └──────────────┬──────────────┘
-                                     │
-                         ┌───────────┴───────────┐
-                         ▼                        ▼
-                ┌────────────────┐      ┌──────────────────┐
-                │  DeskHub        │      │  desktop KDE #1   │
-                │  (FastAPI+React)│      │  desktop KDE #2   │
-                │  parla con      │      │  ...              │
-                │  /var/run/      │◀────▶│  (container       │
-                │  docker.sock    │      │   Docker isolati) │
-                └────────────────┘      └──────────────────┘
-```
-
+  licenza open source del progetto originale.`
+  
 ## Sicurezza
 
 - **Nessun percorso fisso verso un desktop.** Al click su "Apri", il manager
