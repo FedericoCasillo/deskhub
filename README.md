@@ -220,18 +220,41 @@ una breaking change, **questa installazione continuerebbe a funzionare
 comunque**: a runtime non dipende da loro, solo dagli snapshot già scaricati
 da GHCR.
 
+I digest pinnati in `backend/app/config.py` (webtop) e `install.sh`
+(manager) sono tenuti sincronizzati da soli da
+[`.github/workflows/release-images.yml`](.github/workflows/release-images.yml):
+ad ogni push su `master` ribuilda e ripubblica il manager (sempre, perché
+incorpora sia `webtop-image/` che `backend/app/` al suo interno) ed
+eventualmente anche webtop (solo se `webtop-image/` è cambiato), poi
+committa da sé i nuovi digest nei file sopra. Non c'è nessun passaggio
+manuale da ricordare dopo aver cambiato codice — vedi i commenti nel file
+del workflow per i dettagli.
+
 Il `Dockerfile` in `webtop-image/` (per il desktop) e quello nella radice
-del repo (per il manager stesso) restano comunque nel repo per trasparenza
-(sono esattamente ciò che è stato usato per generare gli snapshot
-pubblicati) e sono anche il fallback automatico se per qualche motivo GHCR
-non fosse raggiungibile. Per buildare da sorgente invece di scaricare lo
-snapshot (comportamento opt-in, mai automatico): `WEBTOP_SOURCE=build` in
-`.env` per il desktop (rimuovendo prima `docker rmi deskhub-webtop:latest`),
-`MANAGER_SOURCE=build` per il manager. Per Traefik, `TRAEFIK_IMAGE=traefik:v3.7`
-(o una versione più recente) in `.env` usa l'immagine ufficiale invece di
-quella pinnata. Solo in questo percorso opt-in (o nel fallback automatico
-per assenza di GHCR) si dipende da Docker Hub/LinuxServer.io — mai
-nell'installazione di default.
+del repo (per il manager stesso) restano comunque nel repo per trasparenza:
+sono esattamente ciò che è stato usato per generare gli snapshot pubblicati.
+Da lì si dipende da Docker Hub/LinuxServer.io solo in tre momenti, tutti
+diversi dall'installazione di default (mai a runtime per chi installa da
+`install.sh`):
+
+- **Nella CI di questo progetto**, quando ricostruisce webtop dopo un
+  cambiamento in `webtop-image/`: quello step scarica la base pinnata da
+  `lscr.io/linuxserver/webtop@sha256:...` (pin scelto a mano nel
+  `Dockerfile`, mai la `latest` upstream — vedi il commento in testa al
+  file). Se `lscr.io` fosse irraggiungibile proprio in quel momento,
+  fallirebbe solo quella run: nessun impatto su chi ha già installato né
+  sugli snapshot già pubblicati, l'aggiornamento resta in coda finché non si
+  ritenta.
+- **Come fallback automatico** dentro un'installazione già attiva, se per
+  qualche motivo il manager non riuscisse a scaricare lo snapshot pinnato da
+  GHCR nel momento di creare un desktop: ricostruisce da questi stessi
+  Dockerfile invece di bloccarsi.
+- **Come scelta esplicita di chi installa**, mai automatica: per buildare da
+  sorgente invece di scaricare lo snapshot, `WEBTOP_SOURCE=build` in `.env`
+  per il desktop (rimuovendo prima `docker rmi deskhub-webtop:latest`),
+  `MANAGER_SOURCE=build` per il manager. Per Traefik, `TRAEFIK_IMAGE=traefik:v3.7`
+  (o una versione più recente) in `.env` usa l'immagine ufficiale invece di
+  quella pinnata.
 
 L'unico scenario in cui questa installazione smetterebbe di funzionare da zero è
 se GitHub stesso diventasse irraggiungibile o l'account/repo venisse
