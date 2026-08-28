@@ -1,0 +1,11 @@
+# Derivato da /defaults/default.conf dell'immagine LinuxServer.io Webtop
+# (https://github.com/linuxserver/docker-webtop), licenza GPL-3.0-only —
+# vedi org.opencontainers.image.licenses sull'immagine base. Rispetto
+# all'originale, l'unica modifica (27/08/2026, DeskHub) e' l'aggiunta delle
+# direttive "sub_filter"/"sub_filter_once" nei due blocchi "location
+# SUBFOLDER { ... }" (uno per porta 3000 HTTP, uno per 3001 HTTPS), per
+# iniettare deskhub-overlay.css/.js nella pagina servita: tutto il resto e'
+# invariato. Questo file, come l'immagine "deskhub-webtop" che lo include,
+# resta distribuito sotto GPL-3.0-only — non e' coperto dalla licenza
+# PolyForm Noncommercial del resto del repository DeskHub (vedi README.md,
+# sezione "Licenza").

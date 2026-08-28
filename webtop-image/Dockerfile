@@ -24,9 +24,24 @@ COPY deskhub-icon.png /usr/share/selkies/www/icon.png
 # volta), cosi' sopravvivono ai riavvii. Il template nginx sostituisce
 # /defaults/default.conf: aggiunge solo due "sub_filter" per iniettare
 # <link>/<script> verso questi due file nella risposta HTML, il resto del
-# file e' identico all'originale linuxserver/webtop.
+# file e' identico all'originale linuxserver/webtop, TRANNE che non contiene
+# NESSUN commento "#" nostro (ne' il blocco di licenza, ne' spiegazioni
+# inline): quando PASSWORD e' impostata,
+# /etc/s6-overlay/s6-rc.d/init-nginx/run di linuxserver/webtop lancia
+# "sed -i 's/#//g' ${NGINX_CONFIG}" per abilitare la sua Basic Auth
+# (decommenta le righe "#auth_basic..."), e quel sed toglie ogni '#' dal
+# file indiscriminatamente. Qualunque commento nostro li' dentro (verificato
+# empiricamente sia il blocco di licenza in cima sia una singola riga di
+# spiegazione dentro i blocchi "location") degenera in testo nudo che nginx
+# prova a interpretare come direttiva ("unknown directive ...") e va in
+# crash-loop. Percio' l'attribuzione di licenza GPL-3.0 di questo file vive
+# in NOTICE-nginx.txt separato, e le spiegazioni sui due "sub_filter" restano
+# solo qui nel Dockerfile invece che come commento dentro nginx-default.conf.
+# Verificato: senza PASSWORD il container parte pulito, con PASSWORD
+# impostata andava in crash-loop prima di questo fix.
 COPY deskhub-overlay.css deskhub-overlay.js /usr/share/selkies/selkies-dashboard/
 COPY nginx-default.conf /defaults/default.conf
+COPY NOTICE-nginx.txt /defaults/NOTICE-nginx.txt
 
 # SELKIES_UI_TITLE e' il setting ufficiale di Selkies per il titolo nella
 # sidebar (h2 accanto al logo): nessun hack, solo il nome dato all'opzione.
