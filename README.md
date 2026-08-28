@@ -16,7 +16,7 @@
 
 DeskHub è una webapp self-hosted per creare, avviare, fermare e gestire
 desktop Linux completi (KDE Plasma su Ubuntu) come container Docker
-indipendenti, raggiungibili in streaming dal browser. Un desktop-as-a-service
+indipendenti, raggiungibili in streaming dal browser. È un desktop-as-a-service
 leggero che gira interamente sul tuo hardware: nessun abbonamento, nessun
 dato che passa per l'infrastruttura di qualcun altro.
 
@@ -42,8 +42,8 @@ server, i dati restano tuoi, il costo è solo quello dell'hardware.
 
 **🖥️ Desktop**
 - Crea, avvia, ferma, riavvia ed elimina desktop KDE Plasma completi con un click
-- Nome libero per ogni desktop (es. "web", "ufficio"), non un numero progressivo condiviso con desktop di altri
-- Riutilizzo di configurazioni orfane (container perso ma dati ancora sul disco)
+- Nome libero per ogni desktop (es. "web", "ufficio")
+- Riutilizzo di configurazioni orfane (container eliminato con dati mantenuti sul disco)
 - Limiti RAM/CPU sempre attivi per desktop, con default globale e override singolo, modificabili anche a container già avviato
 
 **👥 Utenti e permessi**
@@ -56,7 +56,7 @@ server, i dati restano tuoi, il costo è solo quello dell'hardware.
 - Conteggio dal vivo di desktop in esecuzione, fermi e orfani
 
 **🔒 Sicurezza e privacy**
-- URL di sessione opachi e a scadenza (stile Kasm): mai un percorso fisso o indovinabile verso un desktop
+- URL di sessione opachi e a scadenza: mai un percorso fisso o indovinabile verso un desktop
 - Spegnimento automatico configurabile dopo N minuti di esecuzione continua
 - Cartelle di configurazione protette: permessi o proprietario alterati da fuori bloccano l'avvio con un errore esplicito, invece di un fallimento silenzioso
 
@@ -72,9 +72,6 @@ Su un host Ubuntu/Debian pulito:
 curl -fsSL https://raw.githubusercontent.com/FedericoCasillo/deskhub/master/install.sh -o install.sh
 bash install.sh
 ```
-
-(Non usare `curl | bash`: lo script chiede utente/password in modo
-interattivo, e con la pipe non riesce a leggerli dal terminale.)
 
 Alla fine stampa l'URL (`https://<ip>:8443/manager/`, ma basta anche la sola
 radice `https://<ip>:8443/`: reindirizza lì in automatico) e le credenziali
@@ -206,9 +203,6 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
   quello atteso, symlink sospetto), il manager rifiuta di avviare o riusare
   quel desktop con un errore esplicito — mai un avvio silenzioso su dati
   manomessi, né un fallimento oscuro dentro il container.
-- **Niente account Linux legato all'utente del manager.** Dentro ogni
-  container l'account è sempre lo stesso (`abc`, fisso): nessun legame tra
-  nome utente del manager e account di sistema del desktop.
 - **Un utente vede solo i suoi desktop.** Nessun conteggio, metrica o log
   che riveli l'esistenza di desktop altrui.
 
@@ -218,15 +212,11 @@ Per default l'installazione **non dipende da nessun registro esterno**
 oltre a GitHub: le tre immagini che servono (manager, desktop, Traefik) sono
 snapshot pubblicati su GitHub Container Registry sotto questo stesso account
 (`ghcr.io/federicocasillo/deskhub-manager`, `deskhub-webtop`,
-`deskhub-traefik`), scaricati pubblicamente senza bisogno di credenziali, e
-referenziati **per digest** (non per tag): un tag su un registro è
-riscrivibile (un push accidentale sotto lo stesso tag cambierebbe
-silenziosamente cosa scaricano i client), un digest no — è l'unico modo per
-cui "immagine pinnata" significhi davvero immutabile.
-
+`deskhub-traefik`), scaricabili pubblicamente senza bisogno di credenziali, e
+referenziati **per digest**.
 Questo significa che se LinuxServer.io cambiasse, spostasse o ritirasse
 l'immagine Webtop ufficiale, o se una nuova versione di Traefik introducesse
-una breaking change, **questa installazione continua a funzionare
+una breaking change, **questa installazione continuerebbe a funzionare
 comunque**: a runtime non dipende da loro, solo dagli snapshot già scaricati
 da GHCR.
 
@@ -243,7 +233,7 @@ quella pinnata. Solo in questo percorso opt-in (o nel fallback automatico
 per assenza di GHCR) si dipende da Docker Hub/LinuxServer.io — mai
 nell'installazione di default.
 
-L'unico scenario in cui questa installazione smette di funzionare da zero è
+L'unico scenario in cui questa installazione smetterebbe di funzionare da zero è
 se GitHub stesso diventasse irraggiungibile o l'account/repo venisse
 rimosso — dipendenza accettata consapevolmente, dato che è la piattaforma
 che ospita il progetto stesso.
@@ -296,11 +286,6 @@ va bene così com'è.
   reali sull'host.
 - "Riavvia" usa `container.restart()` invece di ricreare il container da
   zero: il desktop riparte comunque, il container non viene ricreato.
-- Alla prima apertura di un desktop (appena creato o appena riavviato) è
-  normale vedere per qualche decina di secondi il messaggio "WebSocket
-  disconnected. Attempting to reconnect": è il client dentro il webtop che
-  aspetta che il servizio di streaming dello schermo finisca di avviarsi, e
-  si connette da solo non appena è pronto.
 - Traefik usa un certificato TLS self-signed **persistente**
   (`deploy/traefik/certs/`, generato una volta sola all'installazione), non
   quello effimero interno di Traefik: quest'ultimo si rigenera ad ogni
