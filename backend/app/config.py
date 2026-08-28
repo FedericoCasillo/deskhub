@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     webtop_source: str = "pull"
     webtop_pinned_image: str = (
         "ghcr.io/federicocasillo/deskhub-webtop"
-        "@sha256:7abfcc07c352058b1a3f72d8e525e62e3dd495ab2491224401f7129e79a38479"
+        "@sha256:1594766070ed4fee7dd486e646bea8f79482307e1cf268d973977f91f8212170"
     )
 
     proxy_network: str = "deskhub-proxy"
