@@ -1,0 +1,102 @@
+name: Pubblica immagini su GHCR
+
+# Tiene sincronizzati i pin per-digest usati a runtime (backend/app/config.py
+# per deskhub-webtop, install.sh/README.md per deskhub-manager) con quello
+# che è davvero pubblicato su GHCR. Prima di questo workflow il processo era
+# manuale (build, push, aggiorna il pin a mano) ed era facile dimenticare
+# l'ultimo passo: un fix poteva essere committato senza mai raggiungere
+# un'installazione fresca, che scarica sempre l'immagine pinnata, mai il
+# codice sorgente del commit.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  packages: write
+
+# Mai due run in parallelo: entrambe finirebbero per fare un commit di pin
+# sullo stesso branch, e la seconda a fare git push troverebbe lo storico
+# avanzato da sotto i piedi.
+concurrency:
+  group: release-images
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'FedericoCasillo/deskhub'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Determina se webtop-image/ e' cambiato in questo push
+        id: webtop-changed
+        run: |
+          BEFORE="${{ github.event.before }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            # workflow_dispatch, oppure primo push di un branch: nessun punto
+            # di confronto valido, meglio ricostruire per sicurezza.
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$BEFORE" "${{ github.sha }}" -- webtop-image/; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build e pubblica deskhub-webtop
+        id: webtop
+        if: steps.webtop-changed.outputs.changed == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: webtop-image
+          push: true
+          tags: ghcr.io/federicocasillo/deskhub-webtop:latest
+
+      - name: Aggiorna il pin di deskhub-webtop in config.py
+        if: steps.webtop.outcome == 'success'
+        env:
+          DIGEST: ${{ steps.webtop.outputs.digest }}
+        run: python3 scripts/update_pinned_digests.py --webtop "${DIGEST#sha256:}"
+
+      # Il Dockerfile del manager incorpora webtop-image/ e backend/app/ via
+      # COPY: va ribuildato e ripubblicato ad ogni push su master (anche se
+      # cambia solo backend/ o frontend/), cosi' l'immagine pinnata in
+      # install.sh riflette sempre esattamente il commit che l'ha generata,
+      # incluso l'eventuale nuovo pin webtop aggiornato sopra.
+      - name: Build e pubblica deskhub-manager
+        id: manager
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/federicocasillo/deskhub-manager:latest
+
+      - name: Aggiorna il pin di deskhub-manager in install.sh e README.md
+        env:
+          DIGEST: ${{ steps.manager.outputs.digest }}
+        run: python3 scripts/update_pinned_digests.py --manager "${DIGEST#sha256:}"
+
+      - name: Commit dei pin aggiornati
+        run: |
+          git config user.name "deskhub-release-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "Nessun pin cambiato, niente da committare."
+            exit 0
+          fi
+          git add backend/app/config.py install.sh README.md
+          # [skip ci]: senza, questo stesso commit ritriggererebbe il
+          # workflow su push, ricostruendo immagini identiche all'infinito.
+          git commit -m "Aggiorna i digest pinnati delle immagini pubblicate su GHCR [skip ci]"
+          git push origin HEAD:master
