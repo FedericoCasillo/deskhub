@@ -186,7 +186,7 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
   non necessarie (condivisione, gamepad, secondo schermo, ecc.) per
   un'esperienza più snella. Nessuna affiliazione ufficiale con
   LinuxServer.io: è una build derivata, redistribuita nel rispetto della
-  licenza open source del progetto originale.`
+  licenza open source del progetto originale.
   
 ## Sicurezza
 
