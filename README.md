@@ -128,8 +128,8 @@ esportare prima di lanciare lo script): `TARGET_DIR`, `DATA_DIR`,
    compose build` prima del resto):
 
    ```bash
-   docker pull ghcr.io/federicocasillo/deskhub-manager@sha256:3a4a80a899fbab0703ac93dda9c225076d8b5463094ea54f7eb9310b248d79fb
-   docker tag ghcr.io/federicocasillo/deskhub-manager@sha256:3a4a80a899fbab0703ac93dda9c225076d8b5463094ea54f7eb9310b248d79fb deskhub-manager:latest
+   docker pull ghcr.io/federicocasillo/deskhub-manager@sha256:c560d6f2c4efea9e9839a161d8b1221eb0fe7c312d6d185409ba657bbe18b77b
+   docker tag ghcr.io/federicocasillo/deskhub-manager@sha256:c560d6f2c4efea9e9839a161d8b1221eb0fe7c312d6d185409ba657bbe18b77b deskhub-manager:latest
    docker compose up -d
    ```
 
