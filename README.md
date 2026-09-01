@@ -74,9 +74,7 @@ curl -fsSL https://raw.githubusercontent.com/FedericoCasillo/deskhub/master/inst
 bash install.sh
 ```
 
-Alla fine stampa l'URL (`https://<ip>:8443/manager/`, ma basta anche la sola
-radice `https://<ip>:8443/`: reindirizza lì in automatico) e le credenziali
-impostate durante l'installazione. Lo script è pensato per essere
+Lo script è pensato per essere
 rilanciato: se trova un'installazione esistente la aggiorna (`git pull` +
 rebuild) invece di ripartire da zero — è anche il modo per aggiornare in
 futuro.
@@ -88,9 +86,7 @@ esportare prima di lanciare lo script): `TARGET_DIR` (default `/opt/deskhub`),
 `SKIP_TRAEFIK` (se hai già un tuo reverse proxy sulla rete `deskhub-proxy`).
 I due path di default seguono la convenzione Linux per software di terze
 parti installato fuori dal package manager della distro (`/opt` per il
-codice, `/var/lib` per i dati variabili di un servizio) — sensata per
-deskhub, pensato per più utenti su una macchina condivisa, non per un
-singolo account personale. Lo script crea entrambe le cartelle (con `sudo`
+codice, `/var/lib` per i dati variabili di un servizio). Lo script crea entrambe le cartelle (con `sudo`
 se serve) e ne assegna la proprietà all'utente che lancia lo script.
 
 <details>
@@ -143,8 +139,8 @@ se serve) e ne assegna la proprietà all'utente che lancia lo script.
    docker compose up -d
    ```
 
-5. Apri `https://<ip-del-server>:8443/manager/` (accetta il certificato
-   self-signed di Traefik) e accedi con le credenziali del punto 2.
+5. Accetta il certificato
+   self-signed di Traefik e accedi con le credenziali del punto 2.
 
 </details>
 
