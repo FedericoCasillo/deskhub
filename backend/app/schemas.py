@@ -14,6 +14,7 @@ class DesktopSummary(BaseModel):
     owner: Optional[str] = None
     max_ram_mb: int = 0
     max_cpus: float = 0
+    idle_timeout_minutes: int = 0
 
 
 class DesktopListResponse(BaseModel):
@@ -35,6 +36,7 @@ class DesktopInfo(BaseModel):
     owner: Optional[str] = None
     max_ram_mb: int = 0
     max_cpus: float = 0
+    idle_timeout_minutes: int = 0
 
 
 class OrphanEntry(BaseModel):
@@ -55,11 +57,16 @@ class CreateDesktopRequest(BaseModel):
     # Nessuna risorsa illimitata: ogni desktop ha sempre un tetto RAM/CPU.
     max_ram_mb: Optional[int] = Field(default=None, gt=0, le=1_048_576)
     max_cpus: Optional[float] = Field(default=None, gt=0, le=256)
+    # None = usa il default globale (Settings) al momento della creazione,
+    # come max_ram_mb/max_cpus sopra. 0 = spegnimento automatico disabilitato
+    # per questo desktop.
+    idle_timeout_minutes: Optional[int] = Field(default=None, ge=0, le=1440)
 
 
 class DesktopLimitsPayload(BaseModel):
     max_ram_mb: int = Field(gt=0, le=1_048_576)
     max_cpus: float = Field(gt=0, le=256)
+    idle_timeout_minutes: int = Field(ge=0, le=1440)
 
 
 class DesktopUsage(BaseModel):
@@ -77,6 +84,12 @@ class FleetUsage(BaseModel):
     max_ram_mb: int = 0
     max_cpus: float = 0
     running_count: int = 0
+    # Stesso identico campione per-desktop usato per calcolare i totali sopra
+    # (chiave = id del desktop): il frontend lo passa alle card al posto di
+    # interrogare di nuovo /desktops/{id}/usage, cosi' totale e singole card
+    # mostrano sempre lo stesso numero perche' sono letteralmente lo stesso
+    # dato, non due polling indipendenti che possono sfasarsi nel tempo.
+    per_desktop: dict[str, DesktopUsage] = {}
 
 
 class DesktopSessionOut(BaseModel):

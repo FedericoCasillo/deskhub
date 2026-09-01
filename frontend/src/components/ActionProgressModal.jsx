@@ -72,12 +72,12 @@ export default function ActionProgressModal({ title, jobId, onDone }) {
     <Modal title={title} onClose={finalStatus ? onDone : () => {}}>
       <div
         ref={logRef}
-        className="h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-xs text-slate-300"
+        className="h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 font-mono text-xs text-slate-600 dark:text-slate-300"
       >
         {lines.map((line, index) => (
           <div key={index}>{line}</div>
         ))}
-        {!finalStatus && <div className="animate-pulse text-slate-500">In corso...</div>}
+        {!finalStatus && <div className="animate-pulse text-slate-600 dark:text-slate-500">In corso...</div>}
       </div>
 
       {finalStatus && (
@@ -94,7 +94,7 @@ export default function ActionProgressModal({ title, jobId, onDone }) {
         <button
           onClick={onDone}
           disabled={!finalStatus}
-          className="rounded-lg bg-slate-800 px-4 py-2 text-sm hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg bg-slate-100 dark:bg-slate-800 px-4 py-2 text-sm hover:bg-slate-200 dark:hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Chiudi
         </button>

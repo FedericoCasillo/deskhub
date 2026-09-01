@@ -50,14 +50,14 @@ export default function LogsDrawer({ id, name, status, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center">
-      <div className="flex h-[70vh] w-full max-w-3xl flex-col rounded-xl border border-slate-800 bg-slate-900 shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-800 p-4">
+      <div className="flex h-[70vh] w-full max-w-3xl flex-col rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 p-4">
           <h2 className="text-lg font-semibold">Log {name || id}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-200" aria-label="Chiudi">
+          <button onClick={onClose} className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200" aria-label="Chiudi">
             ×
           </button>
         </div>
-        <pre ref={logRef} className="flex-1 overflow-y-auto whitespace-pre-wrap p-4 font-mono text-xs text-slate-300">
+        <pre ref={logRef} className="flex-1 overflow-y-auto whitespace-pre-wrap p-4 font-mono text-xs text-slate-600 dark:text-slate-300">
           {text || "In attesa di log..."}
         </pre>
       </div>

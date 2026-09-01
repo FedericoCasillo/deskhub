@@ -59,15 +59,40 @@ async def fleet_usage(admin: dict = Depends(require_admin)):
     )
     limits = [docker_service.get_active_limits(i) for i in running_ids]
 
-    cpu_values = [u["cpu_percent"] for u in usages if u["cpu_percent"] is not None]
-    mem_values = [u["mem_used_mb"] for u in usages if u["mem_used_mb"] is not None]
+    # Un desktop entra nel numeratore (uso) E nel denominatore (tetto) solo
+    # se per QUEL desktop e' arrivato in questo giro un campione valido:
+    # sommare comunque il suo tetto quando l'uso non e' disponibile (es.
+    # container appena avviato, primo campione ancora a zero) produce una
+    # frazione incoerente — "100% / 3" quando in realta' solo un desktop da
+    # 1 core ha davvero contribuito al numeratore.
+    cpu_percent_sum = 0.0
+    cpu_cap_sum = 0.0
+    has_cpu_sample = False
+    mem_used_sum = 0.0
+    mem_cap_sum = 0
+    has_mem_sample = False
+
+    for usage, limit in zip(usages, limits):
+        if usage["cpu_percent"] is not None:
+            cpu_percent_sum += usage["cpu_percent"]
+            cpu_cap_sum += limit["max_cpus"]
+            has_cpu_sample = True
+        if usage["mem_used_mb"] is not None:
+            mem_used_sum += usage["mem_used_mb"]
+            mem_cap_sum += limit["max_ram_mb"]
+            has_mem_sample = True
+
+    per_desktop = {
+        desktop_id: DesktopUsage(**usage) for desktop_id, usage in zip(running_ids, usages)
+    }
 
     return FleetUsage(
-        cpu_percent=round(sum(cpu_values), 1) if cpu_values else None,
-        mem_used_mb=round(sum(mem_values), 1) if mem_values else None,
-        max_ram_mb=sum(l["max_ram_mb"] for l in limits),
-        max_cpus=round(sum(l["max_cpus"] for l in limits), 2),
+        cpu_percent=round(cpu_percent_sum, 1) if has_cpu_sample else None,
+        mem_used_mb=round(mem_used_sum, 1) if has_mem_sample else None,
+        max_ram_mb=int(mem_cap_sum),
+        max_cpus=round(cpu_cap_sum, 2),
         running_count=len(running_ids),
+        per_desktop=per_desktop,
     )
 
 
@@ -127,10 +152,13 @@ async def create_desktop(payload: CreateDesktopRequest, admin: dict = Depends(re
     defaults = settings_store.get()
     max_ram_mb = payload.max_ram_mb if payload.max_ram_mb is not None else defaults["default_max_ram_mb"]
     max_cpus = payload.max_cpus if payload.max_cpus is not None else defaults["default_max_cpus"]
+    idle_timeout_minutes = (
+        payload.idle_timeout_minutes if payload.idle_timeout_minutes is not None else defaults["idle_timeout_minutes"]
+    )
 
     desktops_store.set_owner(target_id, payload.owner)
     desktops_store.set_name(target_id, name)
-    desktops_store.set_limits(target_id, max_ram_mb, max_cpus)
+    desktops_store.set_limits(target_id, max_ram_mb, max_cpus, idle_timeout_minutes)
 
     job_id = job_manager.start(
         lambda job: docker_service.create_desktop(target_id, max_ram_mb, max_cpus, job.progress)
@@ -144,7 +172,9 @@ def set_desktop_limits(desktop_id: str, payload: DesktopLimitsPayload, admin: di
     if desktop_id not in docker_service.collect_ids():
         raise HTTPException(404, "Desktop non trovato.")
 
-    docker_service.apply_desktop_limits(desktop_id, payload.max_ram_mb, payload.max_cpus)
+    docker_service.apply_desktop_limits(
+        desktop_id, payload.max_ram_mb, payload.max_cpus, payload.idle_timeout_minutes
+    )
     return docker_service.get_desktop_info(desktop_id)
 
 

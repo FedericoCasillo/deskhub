@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 
 import { api } from "../api";
 import Modal from "./Modal";
+import ResetPasswordModal from "./ResetPasswordModal";
 
 const USER_RE = /^[a-z_][a-z0-9_-]*$/;
 const inputClass =
-  "w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500";
+  "w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500";
 
 export default function UsersModal({ currentUsername, onClose }) {
   const [users, setUsers] = useState(null);
@@ -13,7 +14,9 @@ export default function UsersModal({ currentUsername, onClose }) {
 
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
   const [newRole, setNewRole] = useState("user");
+  const [resetTarget, setResetTarget] = useState(null);
 
   function refresh() {
     api
@@ -36,26 +39,21 @@ export default function UsersModal({ currentUsername, onClose }) {
       setError("La password deve avere almeno 8 caratteri.");
       return;
     }
+    if (newPassword !== newPasswordConfirm) {
+      setError("Le due password non coincidono.");
+      return;
+    }
 
     api
       .createUser({ username: newUsername, password: newPassword, role: newRole })
       .then(() => {
         setNewUsername("");
         setNewPassword("");
+        setNewPasswordConfirm("");
         setNewRole("user");
         refresh();
       })
       .catch((e) => setError(e.message));
-  }
-
-  function handleResetPassword(username) {
-    const password = window.prompt(`Nuova password per ${username} (minimo 8 caratteri):`);
-    if (!password) return;
-    if (password.length < 8) {
-      setError("La password deve avere almeno 8 caratteri.");
-      return;
-    }
-    api.setUserPassword(username, password).catch((e) => setError(e.message));
   }
 
   function handleDelete(username) {
@@ -72,20 +70,20 @@ export default function UsersModal({ currentUsername, onClose }) {
         {error && <p className="text-sm text-red-400">{error}</p>}
 
         <div className="flex max-h-64 flex-col gap-2 overflow-y-auto">
-          {users === null && <p className="text-sm text-slate-400">Caricamento...</p>}
+          {users === null && <p className="text-sm text-slate-500 dark:text-slate-400">Caricamento...</p>}
           {users?.map((u) => (
             <div
               key={u.username}
-              className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-800/50 px-3 py-2 text-sm"
+              className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/50 px-3 py-2 text-sm"
             >
               <div>
                 <span className="font-medium">{u.username}</span>{" "}
-                <span className="text-xs text-slate-400">({u.role === "admin" ? "amministratore" : "utente"})</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">({u.role === "admin" ? "amministratore" : "utente"})</span>
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleResetPassword(u.username)}
-                  className="rounded-lg bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700"
+                  onClick={() => setResetTarget(u.username)}
+                  className="rounded-lg bg-slate-100 dark:bg-slate-800 px-2 py-1 text-xs hover:bg-slate-200 dark:hover:bg-slate-700"
                 >
                   Reset password
                 </button>
@@ -102,8 +100,8 @@ export default function UsersModal({ currentUsername, onClose }) {
           ))}
         </div>
 
-        <form onSubmit={handleCreate} className="flex flex-col gap-3 border-t border-slate-800 pt-4">
-          <p className="text-sm font-medium text-slate-300">Nuovo utente</p>
+        <form onSubmit={handleCreate} className="flex flex-col gap-3 border-t border-slate-200 dark:border-slate-800 pt-4">
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Nuovo utente</p>
           <input
             placeholder="Nome utente"
             value={newUsername}
@@ -115,6 +113,13 @@ export default function UsersModal({ currentUsername, onClose }) {
             placeholder="Password (minimo 8 caratteri)"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
+            className={inputClass}
+          />
+          <input
+            type="password"
+            placeholder="Conferma password"
+            value={newPasswordConfirm}
+            onChange={(e) => setNewPasswordConfirm(e.target.value)}
             className={inputClass}
           />
           <select value={newRole} onChange={(e) => setNewRole(e.target.value)} className={inputClass}>
@@ -130,11 +135,19 @@ export default function UsersModal({ currentUsername, onClose }) {
         </form>
 
         <div className="flex justify-end">
-          <button onClick={onClose} className="rounded-lg bg-slate-800 px-4 py-2 text-sm hover:bg-slate-700">
+          <button onClick={onClose} className="rounded-lg bg-slate-100 dark:bg-slate-800 px-4 py-2 text-sm hover:bg-slate-200 dark:hover:bg-slate-700">
             Chiudi
           </button>
         </div>
       </div>
+
+      {resetTarget && (
+        <ResetPasswordModal
+          username={resetTarget}
+          onClose={() => setResetTarget(null)}
+          onSaved={() => setResetTarget(null)}
+        />
+      )}
     </Modal>
   );
 }

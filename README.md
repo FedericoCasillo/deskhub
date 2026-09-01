@@ -44,12 +44,13 @@ server, i dati restano tuoi, il costo è solo quello dell'hardware.
 - Crea, avvia, ferma, riavvia ed elimina desktop KDE Plasma completi con un click
 - Nome libero per ogni desktop (es. "web", "ufficio")
 - Riutilizzo di configurazioni orfane (container eliminato con dati mantenuti sul disco)
-- Limiti RAM/CPU sempre attivi per desktop, con default globale e override singolo, modificabili anche a container già avviato
+- Limiti RAM/CPU e timeout di spegnimento automatico sempre attivi per desktop, con default globale e override per singolo desktop, modificabili anche a container già avviato
 
 **👥 Utenti e permessi**
 - Login gestito dalla webapp stessa: utenti, password, sessione via cookie
 - Due ruoli — **admin** (crea/elimina/log/dettagli, gestisce utenti, vede lo stato aggregato di tutti) e **utente** (avvia/ferma/riavvia/apre solo i propri desktop)
 - Un utente vede solo ciò che gli appartiene: mai desktop, conteggi o metriche altrui
+- Tema chiaro/scuro con switch, per admin e utenti: eredita il tema del dispositivo finché non lo si sceglie esplicitamente, poi ricorda la scelta
 
 **📊 Monitoraggio**
 - CPU e RAM in tempo reale per singolo desktop e in totale aggregato su tutta la flotta
@@ -81,20 +82,29 @@ rebuild) invece di ripartire da zero — è anche il modo per aggiornare in
 futuro.
 
 Variabili opzionali per un'installazione non interattiva (env var da
-esportare prima di lanciare lo script): `TARGET_DIR`, `DATA_DIR`,
-`HTTPS_PORT`, `MANAGER_INITIAL_ADMIN_USER`, `MANAGER_INITIAL_ADMIN_PASSWORD`,
+esportare prima di lanciare lo script): `TARGET_DIR` (default `/opt/deskhub`),
+`DATA_DIR` (default `/var/lib/deskhub-data`), `HTTPS_PORT`,
+`MANAGER_INITIAL_ADMIN_USER`, `MANAGER_INITIAL_ADMIN_PASSWORD`,
 `SKIP_TRAEFIK` (se hai già un tuo reverse proxy sulla rete `deskhub-proxy`).
+I due path di default seguono la convenzione Linux per software di terze
+parti installato fuori dal package manager della distro (`/opt` per il
+codice, `/var/lib` per i dati variabili di un servizio) — sensata per
+deskhub, pensato per più utenti su una macchina condivisa, non per un
+singolo account personale. Lo script crea entrambe le cartelle (con `sudo`
+se serve) e ne assegna la proprietà all'utente che lancia lo script.
 
 <details>
 <summary><strong>Installazione manuale (passo per passo)</strong></summary>
 
 1. Clona il repo e crea una cartella dati dedicata (**non** la tua home
    intera: il manager monta esattamente questo path, quindi vede solo
-   quello che c'è lì dentro):
+   quello che c'è lì dentro). Qualunque path va bene — questi sono solo gli
+   stessi usati di default da `install.sh`:
 
    ```bash
-   git clone https://github.com/FedericoCasillo/deskhub.git
-   mkdir -p ~/deskhub-data
+   sudo git clone https://github.com/FedericoCasillo/deskhub.git /opt/deskhub
+   sudo chown -R "$(id -un)":"$(id -un)" /opt/deskhub
+   sudo mkdir -p /var/lib/deskhub-data
    ```
 
 2. Crea `.env` (vedi `.env.example`): imposta `DATA_DIR` con il path appena
@@ -189,9 +199,14 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
 
 - **Nessun percorso fisso verso un desktop.** Al click su "Apri", il manager
   verifica sessione utente + proprietà del desktop e genera un token opaco a
-  scadenza (12h, in memoria — non sopravvive a un riavvio del manager, né
-  serve: un nuovo click ne genera uno nuovo). L'unico URL pubblico è
-  `/session/<token>/`. Traefik non ha nessuna route statica per i desktop:
+  scadenza (1h, in memoria — non sopravvive a un riavvio del manager, né
+  serve: un nuovo click ne genera uno nuovo). Il meccanismo è lo stesso stile
+  usato da Kasm per i suoi link diretti/di embedding (un token che vale da
+  solo, senza bisogno di un nuovo login): chi riceve il link lo può usare
+  finché è valido, va quindi trattato come una credenziale temporanea, non
+  condiviso con leggerezza. La durata è allineata al "keepalive expiration"
+  di default di Kasm stesso. L'unico URL pubblico è `/session/<token>/`.
+  Traefik non ha nessuna route statica per i desktop:
   le legge da un endpoint interno del manager (`GET /internal/traefik-config`,
   protetto da un segreto condiviso `TRAEFIK_INTERNAL_SECRET`, mai esposto
   pubblicamente) che elenca solo le sessioni valide in quel momento e
@@ -289,19 +304,33 @@ va bene così com'è.
 <summary>Dettagli su spegnimento automatico, limiti risorse, sessioni e certificati</summary>
 
 - **Spegnimento automatico.** Dall'icona ⚙ in home si imposta un timeout
-  globale (in minuti, 0 = disabilitato): ogni desktop RUNNING da più di N
-  minuti viene fermato automaticamente, controllato ogni 60 secondi da un
-  task in background nel backend. Non è rilevamento di inattività reale:
-  Selkies non espone alcun segnale di input/attività utilizzabile per
-  questo — è stato verificato prima di implementare — quindi il timeout
-  conta dal momento dell'avvio del container, indipendentemente dall'uso
-  effettivo.
+  globale predefinito (in minuti, 0 = disabilitato, 480 di fabbrica): ogni
+  desktop RUNNING da più di N minuti viene fermato automaticamente,
+  controllato ogni 60 secondi da un task in background nel backend. Come
+  RAM/CPU, è modificabile anche per singolo desktop da "Dettagli" (override
+  che sostituisce il default globale solo per quel desktop). Non è
+  rilevamento di inattività reale: Selkies non espone alcun segnale di
+  input/attività utilizzabile per questo — è stato verificato prima di
+  implementare — quindi il timeout conta dal momento dell'avvio del
+  container, indipendentemente dall'uso effettivo.
 - **Limiti CPU/RAM.** Ogni desktop ha sempre un tetto, sia RAM che CPU —
-  nessuna risorsa illimitata. Il default globale (Settings, 1 vCPU / 1024 MB
+  nessuna risorsa illimitata. Il default globale (Settings, 2 vCPU / 2048 MB
   di fabbrica) si può cambiare in ogni momento, così come l'override per
   singolo desktop da "Dettagli"; su un desktop già esistente, Docker
   permette di alzare o abbassare un limite attivo con il container in
   esecuzione senza doverlo ricreare.
+- **Numero di desktop contemporanei.** Il totale flotta e il campionamento
+  CPU/RAM di ogni desktop RUNNING interrogano Docker in parallelo, un
+  thread per desktop (pool di default di Python: `min(32, core_host + 4)`).
+  È fatto così, con un solo poll condiviso (`GET /desktops/usage`) che
+  alimenta sia la barra "Totale" che tutte le card della dashboard admin —
+  coerente con come il resto della dashboard tiene aggiornati i propri dati
+  (polling periodico, come la lista desktop), non un flusso push a parte.
+  Un utente non-admin, senza barra "Totale" da tenere allineata, interroga
+  `/desktops/{id}/usage` per conto proprio.
+- **Reset password (admin).** Un dialog integrato nello stile dell'app
+  (nuova password + conferma), non più un prompt nativo del browser a campo
+  singolo.
 - Il container del manager monta `/var/run/docker.sock` (per gestire i
   container) e `DATA_DIR` **allo stesso path** anche al suo interno: è
   necessario perché i bind-mount dei desktop vengono risolti dal Docker

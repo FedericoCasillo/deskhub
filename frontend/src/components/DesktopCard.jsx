@@ -1,17 +1,18 @@
 import { useEffect, useState } from "react";
 
 import { api } from "../api";
+import { scheduleAligned } from "../pollAlign";
 import { IconInfo, IconList, IconPlay, IconRefresh, IconSquare, IconTrash } from "./icons";
 import UsageBar from "./UsageBar";
 
 const STATUS_STYLES = {
   RUNNING: "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30",
   STOPPED: "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30",
-  ORPHAN: "bg-slate-500/15 text-slate-400 ring-1 ring-slate-500/30",
+  ORPHAN: "bg-slate-500/15 text-slate-500 dark:text-slate-400 ring-1 ring-slate-500/30",
 };
 
 const BUTTON_TONES = {
-  default: "bg-slate-800 hover:bg-slate-700 text-slate-100",
+  default: "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100",
   primary: "bg-emerald-600 hover:bg-emerald-500 text-white",
   danger: "bg-red-900/60 hover:bg-red-800 text-red-100",
 };
@@ -35,11 +36,21 @@ function ActionButton({ icon, label, onClick, tone = "default", disabled = false
   );
 }
 
-function useDesktopUsage(id, status) {
+// sharedUsage, quando presente, viene dal poll unico e condiviso di
+// App.jsx (vedi useFleetUsage) invece che da un poll indipendente qui: e'
+// il caso dell'admin, che vede anche la barra "Totale" — un secondo poll
+// indipendente per la stessa card mostrerebbe lo stesso dato letto in due
+// momenti leggermente diversi, quindi a volte un numero diverso da quello
+// del totale (visto dal vivo, non solo in teoria). Per un utente normale
+// (nessuna barra "Totale" da tenere allineata) sharedUsage e' sempre
+// undefined e la card interroga /desktops/{id}/usage per conto proprio,
+// come prima.
+function useDesktopUsage(id, status, sharedUsage) {
   const [usage, setUsage] = useState(null);
+  const hasSharedUsage = sharedUsage !== undefined;
 
   useEffect(() => {
-    if (status !== "RUNNING") {
+    if (hasSharedUsage || status !== "RUNNING") {
       setUsage(null);
       return undefined;
     }
@@ -57,19 +68,20 @@ function useDesktopUsage(id, status) {
     }
 
     poll();
-    const interval = setInterval(poll, USAGE_POLL_MS);
+    const cancelSchedule = scheduleAligned(poll, USAGE_POLL_MS);
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      cancelSchedule();
     };
-  }, [id, status]);
+  }, [id, status, hasSharedUsage]);
 
-  return usage;
+  if (status !== "RUNNING") return null;
+  return hasSharedUsage ? sharedUsage : usage;
 }
 
-export default function DesktopCard({ desktop, isAdmin, onStart, onStop, onRestart, onDelete, onLogs, onInfo }) {
+export default function DesktopCard({ desktop, isAdmin, sharedUsage, onStart, onStop, onRestart, onDelete, onLogs, onInfo }) {
   const { id, name, status, owner, max_ram_mb, max_cpus } = desktop;
-  const usage = useDesktopUsage(id, status);
+  const usage = useDesktopUsage(id, status, sharedUsage);
   const [opening, setOpening] = useState(false);
   const [openError, setOpenError] = useState("");
 
@@ -140,16 +152,16 @@ export default function DesktopCard({ desktop, isAdmin, onStart, onStop, onResta
     }
   }
 
-  const cpuPercent = usage?.cpu_percent ?? null;
+  const cpuPercentRaw = usage?.cpu_percent ?? null;
   // cpu_percent di Docker e' relativo a un core intero (un desktop che usa
-  // 2 core pieni mostra ~200%), non al limite assegnato al desktop: per la
-  // barra (colore/riempimento) va rapportato a max_cpus, non usato grezzo,
-  // altrimenti un limite > 1 core la fa apparire piena/rossa molto prima
-  // del reale. Il testo invece mostra il valore grezzo apposta, e' quello
-  // il dato utile da leggere.
-  const cpuBarPercent = cpuPercent != null && max_cpus > 0 ? cpuPercent / max_cpus : cpuPercent;
-  const cpuTail =
-    cpuPercent == null ? "—" : max_cpus > 0 ? `${Math.round(cpuPercent)}% / ${max_cpus}` : `${Math.round(cpuPercent)}%`;
+  // 2 core pieni mostra ~200%), non al limite assegnato al desktop: sia la
+  // barra che il testo lo rapportano a max_cpus, come gia' fa la RAM
+  // (usato/tetto*100) — mostrare il valore grezzo nel testo accanto al
+  // tetto sembra un rapporto ("100% / 2") ma non lo e', ed e' proprio quel
+  // disallineamento a far tornare somme apparentemente impossibili quando
+  // piu' desktop con tetti diversi vengono sommati (vedi fleet_usage).
+  const cpuPercent = cpuPercentRaw != null && max_cpus > 0 ? cpuPercentRaw / max_cpus : cpuPercentRaw;
+  const cpuTail = cpuPercent == null ? "—" : max_cpus > 0 ? `${Math.round(cpuPercent)}% su ${max_cpus} core` : `${Math.round(cpuPercent)}%`;
 
   const memPercent = usage?.mem_used_mb != null && max_ram_mb > 0 ? (usage.mem_used_mb / max_ram_mb) * 100 : null;
   const memTail =
@@ -158,7 +170,7 @@ export default function DesktopCard({ desktop, isAdmin, onStart, onStop, onResta
       : `${Math.round(usage.mem_used_mb)}${max_ram_mb > 0 ? `/${max_ram_mb}` : ""}MB`;
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
+    <div className="flex flex-col gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">{name || id}</h3>
         <span className={`rounded-full px-2 py-1 text-xs font-medium ${STATUS_STYLES[status]}`}>
@@ -166,11 +178,11 @@ export default function DesktopCard({ desktop, isAdmin, onStart, onStop, onResta
         </span>
       </div>
 
-      {isAdmin && owner && <p className="text-xs text-slate-500">Proprietario: {owner}</p>}
+      {isAdmin && owner && <p className="text-xs text-slate-600 dark:text-slate-500">Proprietario: {owner}</p>}
 
       {status === "RUNNING" && (
         <div className="flex flex-col gap-1.5">
-          <UsageBar label="CPU" percent={cpuBarPercent} tail={cpuTail} />
+          <UsageBar label="CPU" percent={cpuPercent} tail={cpuTail} />
           <UsageBar label="RAM" percent={memPercent} tail={memTail} />
         </div>
       )}

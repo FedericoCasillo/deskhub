@@ -55,15 +55,23 @@ def set_name(desktop_id: str, name: str) -> None:
 def get_limits(desktop_id: str) -> dict:
     with _LOCK:
         entry = _load().get(desktop_id, {})
-        return {"max_ram_mb": entry.get("max_ram_mb", 0), "max_cpus": entry.get("max_cpus", 0)}
+        return {
+            "max_ram_mb": entry.get("max_ram_mb", 0),
+            "max_cpus": entry.get("max_cpus", 0),
+            # None = nessun override per questo desktop: chi legge ricade sul
+            # valore globale (Settings). Solo i desktop creati prima di
+            # questa funzionalita' non hanno mai la chiave salvata.
+            "idle_timeout_minutes": entry.get("idle_timeout_minutes"),
+        }
 
 
-def set_limits(desktop_id: str, max_ram_mb: int, max_cpus: float) -> None:
+def set_limits(desktop_id: str, max_ram_mb: int, max_cpus: float, idle_timeout_minutes: int) -> None:
     with _LOCK:
         data = _load()
         entry = data.setdefault(desktop_id, {})
         entry["max_ram_mb"] = max_ram_mb
         entry["max_cpus"] = max_cpus
+        entry["idle_timeout_minutes"] = idle_timeout_minutes
         _save(data)
 
 

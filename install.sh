@@ -8,8 +8,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/FedericoCasillo/deskhub/master/install.sh | bash
 #
 # Variabili opzionali (per uso non interattivo):
-#   TARGET_DIR      cartella dove clonare il progetto (default: ~/deskhub)
-#   DATA_DIR        cartella dati desktop (default: ~/deskhub-data)
+#   TARGET_DIR      cartella dove clonare il progetto (default: /opt/deskhub)
+#   DATA_DIR        cartella dati desktop (default: /var/lib/deskhub-data)
 #   HTTPS_PORT      porta pubblica del reverse proxy (default: 8443)
 #   MANAGER_INITIAL_ADMIN_USER      utente amministratore iniziale della webapp
 #   MANAGER_INITIAL_ADMIN_PASSWORD  password dell'amministratore iniziale
@@ -20,7 +20,11 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/FedericoCasillo/deskhub.git"
-TARGET_DIR="${TARGET_DIR:-$HOME/deskhub}"
+# /opt per default (convenzione Linux per software di terze parti installato
+# fuori dal package manager della distro), non piu' la home dell'utente: cosi'
+# l'installazione non dipende da quale utente ha lanciato lo script e resta
+# al suo posto anche se in futuro si usa un utente diverso per gestirla.
+TARGET_DIR="${TARGET_DIR:-/opt/deskhub}"
 
 log() { printf '\n\033[1;32m==>\033[0m %s\n' "$1"; }
 warn() { printf '\033[1;33m!!\033[0m %s\n' "$1"; }
@@ -57,6 +61,13 @@ fi
 DOCKER="sudo docker"
 
 # --- 2. codice sorgente ----------------------------------------------------
+# TARGET_DIR e' sotto /opt per default (radice root): va creata e assegnata
+# all'utente corrente prima di poterci clonare/aggiornare il repo, altrimenti
+# ogni operazione git successiva servirebbe sudo. Idempotente: su un rilancio
+# con la cartella gia' di proprieta' giusta non cambia nulla.
+sudo mkdir -p "$TARGET_DIR"
+sudo chown "$CURRENT_USER":"$CURRENT_USER" "$TARGET_DIR"
+
 if [ -d "$TARGET_DIR/.git" ]; then
   log "Trovata installazione esistente in $TARGET_DIR, aggiorno..."
   git -C "$TARGET_DIR" pull --ff-only
@@ -152,10 +163,14 @@ if [ -f .env ] && grep -q '^DATA_DIR=' .env; then
   # .env gia' presente con DATA_DIR gia' configurato: lo riuso, non tocco le credenziali.
   DATA_DIR="$(grep -m1 '^DATA_DIR=' .env | cut -d= -f2-)"
 else
-  DATA_DIR="${DATA_DIR:-$HOME/deskhub-data}"
+  # /var/lib per default (convenzione Linux per i dati variabili di un
+  # servizio, a differenza di /opt che ospita il codice), non piu' la home
+  # dell'utente: sensato per deskhub, pensato per piu' utenti su una macchina
+  # condivisa e non per un solo account personale.
+  DATA_DIR="${DATA_DIR:-/var/lib/deskhub-data}"
   echo "DATA_DIR=$DATA_DIR" >> .env
 fi
-mkdir -p "$DATA_DIR"
+sudo mkdir -p "$DATA_DIR"
 
 # --- 7. file .env ------------------------------------------------------
 # L'autenticazione e' gestita dalla webapp stessa (login, utenti, ruoli), non

@@ -9,7 +9,7 @@ from typing import Callable, Optional
 import docker
 from docker.errors import NotFound
 
-from app import desktops_store
+from app import desktops_store, settings_store
 from app.config import settings
 from app.schemas import DesktopInfo, DesktopListResponse, DesktopSummary, Status
 
@@ -214,22 +214,45 @@ def list_desktops(owner: Optional[str] = None) -> DesktopListResponse:
                 owner=desktop_owner,
                 max_ram_mb=limits["max_ram_mb"],
                 max_cpus=limits["max_cpus"],
+                idle_timeout_minutes=limits["idle_timeout_minutes"],
             )
         )
 
     return DesktopListResponse(desktops=desktops, running=running, stopped=stopped, orphan=orphan)
 
 
+def _effective_idle_timeout_minutes(desktop_id: str) -> int:
+    """Il timeout di spegnimento non e' mai un attributo del container Docker
+    (a differenza di RAM/CPU): vive solo nella preferenza salvata, con
+    ricaduta sul valore globale (Settings) se il desktop non ha mai avuto un
+    override esplicito."""
+    override = desktops_store.get_limits(desktop_id)["idle_timeout_minutes"]
+    if override is not None:
+        return override
+    return settings_store.get()["idle_timeout_minutes"]
+
+
 def get_active_limits(desktop_id: str) -> dict:
-    """Ritorna {'max_ram_mb', 'max_cpus', 'live'}. live=True se i valori
-    vengono letti dal container esistente (quindi sono davvero applicati in
-    questo momento, e Docker non permette di azzerarli via update — solo di
-    alzarli o abbassarli, vedi apply_desktop_limits); live=False se il
-    desktop e' ORPHAN e i valori vengono dalla preferenza salvata (li'
-    azzerarli e' libero, contano solo alla prossima creazione)."""
+    """Ritorna {'max_ram_mb', 'max_cpus', 'idle_timeout_minutes', 'live'}.
+    live=True se RAM/CPU vengono letti dal container esistente (quindi sono
+    davvero applicati in questo momento, e Docker non permette di azzerarli
+    via update — solo di alzarli o abbassarli, vedi apply_desktop_limits);
+    live=False se il desktop e' ORPHAN e i valori vengono dalla preferenza
+    salvata (li' azzerarli e' libero, contano solo alla prossima creazione).
+    idle_timeout_minutes invece e' sempre la preferenza salvata (con ricaduta
+    sul default globale), a prescindere da live: non esiste una versione
+    "letta da Docker" di questo valore."""
+    idle_timeout_minutes = _effective_idle_timeout_minutes(desktop_id)
+
     container = _find_container(get_container_name(desktop_id))
     if container is None:
-        return {**desktops_store.get_limits(desktop_id), "live": False}
+        limits = desktops_store.get_limits(desktop_id)
+        return {
+            "max_ram_mb": limits["max_ram_mb"],
+            "max_cpus": limits["max_cpus"],
+            "idle_timeout_minutes": idle_timeout_minutes,
+            "live": False,
+        }
 
     container.reload()
     host_config = container.attrs.get("HostConfig", {}) or {}
@@ -239,6 +262,7 @@ def get_active_limits(desktop_id: str) -> dict:
     return {
         "max_ram_mb": memory // (1024 * 1024) if memory else 0,
         "max_cpus": round(cpu_quota / cpu_period, 2) if cpu_period else 0,
+        "idle_timeout_minutes": idle_timeout_minutes,
         "live": True,
     }
 
@@ -268,18 +292,31 @@ def get_desktop_info(desktop_id: str) -> DesktopInfo:
         owner=desktops_store.get_owner(desktop_id),
         max_ram_mb=limits["max_ram_mb"],
         max_cpus=limits["max_cpus"],
+        idle_timeout_minutes=limits["idle_timeout_minutes"],
     )
 
 
-def get_container_usage(desktop_id: str) -> dict:
-    """Uso live (CPU%, RAM in MB) del container. Chiamata bloccante (~1-2s,
-    Docker campiona due istanti di cgroup per calcolare un delta) — il
-    chiamante deve eseguirla in un thread separato (asyncio.to_thread), mai
-    direttamente nell'event loop."""
-    container = _find_container(get_container_name(desktop_id))
-    if container is None:
-        return {"cpu_percent": None, "mem_used_mb": None}
+# Il totale flotta e la card di un singolo desktop interrogano entrambi
+# get_container_usage() in modo indipendente, in teoria quasi nello stesso
+# istante (poll allineati sulla stessa griglia temporale, vedi
+# frontend/src/pollAlign.js, entrambi ogni 8s) ma non perfettamente: due
+# timer del browser schedulati separatamente possono comunque scartare di
+# qualche secondo l'uno dall'altro. Dato che Docker mantiene un solo
+# campione "precedente" per container con cui calcolare il delta di CPU, il
+# secondo dei due a chiamare "consuma" il campione appena lasciato dal primo
+# e si ritrova con una finestra di delta troppo corta, quindi un numero
+# diverso da quello letto un attimo prima per lo stesso container. La cache
+# resta valida quasi fino all'intero ciclo di polling (7s su 8s): qualunque
+# sia lo scarto reale fra i due timer, il secondo chiamante nello stesso
+# giro trova quasi sempre il campione del primo gia' pronto, invece di
+# generare una nuova richiesta concorrente a Docker per lo stesso container.
+# Resta comunque piu' corta di 8s: il polling periodico dello stesso
+# consumer (stessa card, stesso giro dopo) prende sempre un campione fresco.
+_USAGE_CACHE_TTL_SECONDS = 7
+_usage_cache: dict[str, tuple[float, dict]] = {}
 
+
+def _sample_container_usage(container) -> dict:
     try:
         raw = container.stats(stream=False)
     except Exception:
@@ -310,12 +347,45 @@ def get_container_usage(desktop_id: str) -> dict:
     return {"cpu_percent": cpu_percent, "mem_used_mb": mem_used_mb}
 
 
-def apply_desktop_limits(desktop_id: str, max_ram_mb: int, max_cpus: float) -> None:
+def get_container_usage(desktop_id: str) -> dict:
+    """Uso live (CPU%, RAM in MB) del container. Chiamata bloccante (~1-2s,
+    Docker campiona due istanti di cgroup per calcolare un delta) — il
+    chiamante deve eseguirla in un thread separato (asyncio.to_thread), mai
+    direttamente nell'event loop."""
+    cached = _usage_cache.get(desktop_id)
+    if cached is not None and time.monotonic() - cached[0] < _USAGE_CACHE_TTL_SECONDS:
+        return cached[1]
+
+    container = _find_container(get_container_name(desktop_id))
+    if container is None:
+        return {"cpu_percent": None, "mem_used_mb": None}
+
+    result = _sample_container_usage(container)
+    if result["cpu_percent"] is None:
+        # La causa piu' comune non e' un errore: se questa e' la prima volta
+        # che QUALCUNO interroga le stats di questo container (appena
+        # avviato, o mai osservato prima da quando gira), il demone Docker
+        # non ha ancora un campione precedente in cache per calcolare un
+        # delta ("precpu_stats" torna vuoto) — non un guasto, solo la
+        # prima chiamata che fa da battistrada. Un secondo tentativo
+        # immediato trova quel campione gia' pronto (registrato dal primo
+        # tentativo un istante prima) invece di propagare "nessun dato" al
+        # chiamante e falsare le somme aggregate (vedi fleet_usage).
+        result = _sample_container_usage(container)
+
+    _usage_cache[desktop_id] = (time.monotonic(), result)
+    return result
+
+
+def apply_desktop_limits(desktop_id: str, max_ram_mb: int, max_cpus: float, idle_timeout_minutes: int) -> None:
     """Salva la preferenza (usata per gli ORPHAN, che non hanno un container
     da interrogare) e applica subito al container se esiste. max_ram_mb/
     max_cpus sono sempre > 0 (validato dallo schema della richiesta): nessuna
-    risorsa illimitata, quindi qui non si azzera mai un limite gia' attivo."""
-    desktops_store.set_limits(desktop_id, max_ram_mb, max_cpus)
+    risorsa illimitata, quindi qui non si azzera mai un limite gia' attivo.
+    idle_timeout_minutes invece non tocca mai il container (non e' un suo
+    attributo, vedi _effective_idle_timeout_minutes): la sola scrittura nello
+    store basta, il loop periodico lo rilegge da li' ad ogni giro."""
+    desktops_store.set_limits(desktop_id, max_ram_mb, max_cpus, idle_timeout_minutes)
     container = _find_container(get_container_name(desktop_id))
     if container is not None:
         container.update(**_mem_kwargs(max_ram_mb), **_cpu_kwargs(max_cpus))
@@ -672,18 +742,20 @@ def _parse_docker_timestamp(value: str) -> datetime:
     return datetime.fromisoformat(base).replace(tzinfo=timezone.utc, microsecond=microseconds)
 
 
-def stop_expired_desktops(minutes: int) -> list[str]:
-    """Ferma i desktop RUNNING da almeno `minutes` minuti. Nessun controllo di
-    inattivita' reale: Selkies non espone un segnale di attivita' utente
-    utilizzabile, quindi il timeout e' sul tempo di esecuzione continuo."""
-    if minutes <= 0:
-        return []
-
-    threshold = timedelta(minutes=minutes)
+def stop_expired_desktops() -> list[str]:
+    """Ferma i desktop RUNNING che hanno superato il proprio timeout (override
+    per-desktop se impostato, altrimenti il default globale — vedi
+    _effective_idle_timeout_minutes). Nessun controllo di inattivita' reale:
+    Selkies non espone un segnale di attivita' utente utilizzabile, quindi il
+    timeout e' sul tempo di esecuzione continuo."""
     now = datetime.now(timezone.utc)
     stopped = []
 
     for desktop_id in collect_ids():
+        minutes = _effective_idle_timeout_minutes(desktop_id)
+        if minutes <= 0:
+            continue
+
         container = _find_container(get_container_name(desktop_id))
         if container is None:
             continue
@@ -693,7 +765,7 @@ def stop_expired_desktops(minutes: int) -> list[str]:
             continue
 
         started = _parse_docker_timestamp(container.attrs["State"]["StartedAt"])
-        if now - started >= threshold:
+        if now - started >= timedelta(minutes=minutes):
             container.stop()
             stopped.append(desktop_id)
 

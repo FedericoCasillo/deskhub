@@ -5,21 +5,22 @@ import Modal from "./Modal";
 
 function Row({ label, value }) {
   return (
-    <div className="flex justify-between gap-4 border-b border-slate-800 pb-2">
-      <dt className="text-slate-400">{label}</dt>
+    <div className="flex justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-2">
+      <dt className="text-slate-500 dark:text-slate-400">{label}</dt>
       <dd className="break-all text-right font-mono">{value}</dd>
     </div>
   );
 }
 
 const inputClass =
-  "w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500";
+  "w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500";
 
 export default function InfoDrawer({ id, onClose }) {
   const [info, setInfo] = useState(null);
   const [error, setError] = useState("");
   const [maxRamMb, setMaxRamMb] = useState("");
   const [maxCpus, setMaxCpus] = useState("");
+  const [idleTimeoutMinutes, setIdleTimeoutMinutes] = useState("");
   const [saving, setSaving] = useState(false);
 
   function refresh() {
@@ -29,6 +30,7 @@ export default function InfoDrawer({ id, onClose }) {
         setInfo(data);
         setMaxRamMb(String(data.max_ram_mb));
         setMaxCpus(String(data.max_cpus));
+        setIdleTimeoutMinutes(String(data.idle_timeout_minutes));
       })
       .catch((e) => setError(e.message));
   }
@@ -40,8 +42,12 @@ export default function InfoDrawer({ id, onClose }) {
     setError("");
     setSaving(true);
     api
-      .setDesktopLimits(id, { max_ram_mb: Number(maxRamMb), max_cpus: Number(maxCpus) })
-      .then(refresh)
+      .setDesktopLimits(id, {
+        max_ram_mb: Number(maxRamMb),
+        max_cpus: Number(maxCpus),
+        idle_timeout_minutes: Number(idleTimeoutMinutes),
+      })
+      .then(onClose)
       .catch((e) => setError(e.message))
       .finally(() => setSaving(false));
   }
@@ -49,7 +55,7 @@ export default function InfoDrawer({ id, onClose }) {
   return (
     <Modal title={`Dettagli ${info?.name ?? id}`} onClose={onClose}>
       {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
-      {!info && !error && <p className="text-sm text-slate-400">Caricamento...</p>}
+      {!info && !error && <p className="text-sm text-slate-500 dark:text-slate-400">Caricamento...</p>}
       {info && (
         <div className="flex flex-col gap-4">
           <dl className="space-y-2 text-sm">
@@ -64,11 +70,11 @@ export default function InfoDrawer({ id, onClose }) {
             <Row label="Rete proxy" value={info.network_present ? "Presente" : "Assente"} />
           </dl>
 
-          <form onSubmit={handleSaveLimits} className="flex flex-col gap-3 border-t border-slate-800 pt-4">
-            <p className="text-sm font-medium text-slate-300">Limiti risorse</p>
+          <form onSubmit={handleSaveLimits} className="flex flex-col gap-3 border-t border-slate-200 dark:border-slate-800 pt-4">
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Limiti risorse</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-xs text-slate-400">RAM max (MB)</label>
+                <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">RAM max (MB)</label>
                 <input
                   type="number"
                   min="1"
@@ -78,7 +84,7 @@ export default function InfoDrawer({ id, onClose }) {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs text-slate-400">CPU max (core)</label>
+                <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">CPU max (core)</label>
                 <input
                   type="number"
                   min="0.5"
@@ -88,6 +94,19 @@ export default function InfoDrawer({ id, onClose }) {
                   className={inputClass}
                 />
               </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">
+                Spegnimento automatico dopo N minuti (0 = disabilitato)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="1440"
+                value={idleTimeoutMinutes}
+                onChange={(e) => setIdleTimeoutMinutes(e.target.value)}
+                className={inputClass}
+              />
             </div>
             <div className="flex justify-end">
               <button

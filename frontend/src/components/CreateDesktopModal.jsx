@@ -6,14 +6,14 @@ import Modal from "./Modal";
 function Field({ label, children }) {
   return (
     <div>
-      <label className="mb-1 block text-sm text-slate-300">{label}</label>
+      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">{label}</label>
       {children}
     </div>
   );
 }
 
 const inputClass =
-  "w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500";
+  "w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500";
 
 export default function CreateDesktopModal({ onClose, onSubmit }) {
   const [orphans, setOrphans] = useState([]);
@@ -24,6 +24,7 @@ export default function CreateDesktopModal({ onClose, onSubmit }) {
   const [defaults, setDefaults] = useState(null);
   const [maxRamMb, setMaxRamMb] = useState("");
   const [maxCpus, setMaxCpus] = useState("");
+  const [idleTimeoutMinutes, setIdleTimeoutMinutes] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -74,6 +75,7 @@ export default function CreateDesktopModal({ onClose, onSubmit }) {
       reuse_id: reuseId || null,
       max_ram_mb: maxRamMb === "" ? null : Number(maxRamMb),
       max_cpus: maxCpus === "" ? null : Number(maxCpus),
+      idle_timeout_minutes: idleTimeoutMinutes === "" ? null : Number(idleTimeoutMinutes),
     });
   }
 
@@ -146,13 +148,25 @@ export default function CreateDesktopModal({ onClose, onSubmit }) {
           </Field>
         </div>
 
+        <Field label={`Spegnimento automatico dopo N minuti (default ${defaults?.idle_timeout_minutes ?? "..."})`}>
+          <input
+            type="number"
+            min="0"
+            max="1440"
+            placeholder="usa il default"
+            value={idleTimeoutMinutes}
+            onChange={(e) => setIdleTimeoutMinutes(e.target.value)}
+            className={inputClass}
+          />
+        </Field>
+
         {error && <p className="text-sm text-red-400">{error}</p>}
 
         <div className="mt-2 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg bg-slate-800 px-4 py-2 text-sm hover:bg-slate-700"
+            className="rounded-lg bg-slate-100 dark:bg-slate-800 px-4 py-2 text-sm hover:bg-slate-200 dark:hover:bg-slate-700"
           >
             Annulla
           </button>

@@ -11,22 +11,24 @@ import InfoDrawer from "./components/InfoDrawer";
 import LoginPage from "./components/LoginPage";
 import LogsDrawer from "./components/LogsDrawer";
 import SettingsModal from "./components/SettingsModal";
+import ThemeToggle from "./components/ThemeToggle";
 import UsersModal from "./components/UsersModal";
+import { useFleetUsage } from "./hooks/useFleetUsage";
 
 // Solo il tono base qui: l'hover si applica a parte, e solo se l'elemento e'
 // davvero cliccabile (RUN/STOP/ORPH sono indicatori, non azioni — su mobile
 // un tap su un elemento con hover: lo "accende" comunque anche se non fa
 // nulla, dando l'impressione sbagliata che sia un bottone).
 const TOOLBAR_TONES = {
-  default: "bg-slate-800 text-slate-100",
+  default: "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100",
   primary: "bg-emerald-600 text-white",
   run: "bg-emerald-500/10 text-emerald-400",
   stop: "bg-amber-500/10 text-amber-400",
-  orph: "bg-slate-500/10 text-slate-400",
+  orph: "bg-slate-500/10 text-slate-500 dark:text-slate-400",
 };
 
 const TOOLBAR_HOVER = {
-  default: "hover:bg-slate-700",
+  default: "hover:bg-slate-200 dark:hover:bg-slate-700",
   primary: "hover:bg-emerald-500",
 };
 
@@ -58,6 +60,11 @@ export default function App() {
   const [logsId, setLogsId] = useState(null);
   const [infoId, setInfoId] = useState(null);
   const [confirm, setConfirm] = useState(null);
+
+  // Chiamato sempre (mai dopo un return condizionale, vedi regole degli
+  // hook): "enabled" resta false finche' non sappiamo ancora se l'utente e'
+  // admin (me non ancora caricato/non loggato).
+  const fleetUsage = useFleetUsage(me?.role === "admin");
 
   useEffect(() => {
     api
@@ -180,7 +187,7 @@ export default function App() {
   }
 
   if (me === undefined) {
-    return <div className="min-h-screen bg-slate-950" />;
+    return <div className="min-h-screen bg-slate-50 dark:bg-slate-950" />;
   }
 
   if (me === null) {
@@ -190,16 +197,17 @@ export default function App() {
   const isAdmin = me.role === "admin";
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-900/60">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+      <header className="border-b border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/60">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-semibold">DeskHub</h1>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-400">{me.username}</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400">{me.username}</span>
+              <ThemeToggle />
               <button
                 onClick={handleLogout}
-                className="rounded-lg bg-slate-800 px-3 py-2 text-sm hover:bg-slate-700"
+                className="rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm hover:bg-slate-200 dark:hover:bg-slate-700"
               >
                 Esci
               </button>
@@ -226,7 +234,7 @@ export default function App() {
             </div>
           )}
 
-          {isAdmin && <FleetUsageBars />}
+          {isAdmin && <FleetUsageBars usage={fleetUsage} />}
         </div>
       </header>
 
@@ -241,6 +249,7 @@ export default function App() {
           <DesktopList
             desktops={data.desktops}
             isAdmin={isAdmin}
+            fleetUsage={fleetUsage}
             onStart={handleStart}
             onStop={handleStop}
             onRestart={handleRestart}
@@ -249,7 +258,7 @@ export default function App() {
             onInfo={setInfoId}
           />
         ) : (
-          !error && <p className="py-16 text-center text-slate-400">Caricamento...</p>
+          !error && <p className="py-16 text-center text-slate-500 dark:text-slate-400">Caricamento...</p>
         )}
       </main>
 

@@ -1,8 +1,8 @@
 import DesktopCard from "./DesktopCard";
 
-export default function DesktopList({ desktops, isAdmin, onStart, onStop, onRestart, onDelete, onLogs, onInfo }) {
+export default function DesktopList({ desktops, isAdmin, fleetUsage, onStart, onStop, onRestart, onDelete, onLogs, onInfo }) {
   if (desktops.length === 0) {
-    return <p className="py-16 text-center text-slate-400">Nessuna risorsa disponibile.</p>;
+    return <p className="py-16 text-center text-slate-500 dark:text-slate-400">Nessuna risorsa disponibile.</p>;
   }
 
   return (
@@ -12,6 +12,7 @@ export default function DesktopList({ desktops, isAdmin, onStart, onStop, onRest
           key={desktop.id}
           desktop={desktop}
           isAdmin={isAdmin}
+          sharedUsage={fleetUsage?.per_desktop?.[desktop.id]}
           onStart={() => onStart(desktop)}
           onStop={() => onStop(desktop)}
           onRestart={() => onRestart(desktop)}

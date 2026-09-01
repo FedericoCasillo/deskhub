@@ -9,7 +9,9 @@ from threading import Lock
 # sopravvivere a un riavvio del manager, e un'eventuale perdita al riavvio
 # e' innocua (l'utente riclicca "Apri" e ne ottiene uno nuovo).
 
-SESSION_TTL_SECONDS = 12 * 60 * 60  # 12 ore
+SESSION_TTL_SECONDS = 60 * 60  # 1 ora: come il "keepalive expiration" di
+# default di Kasm (la sessione live scade circa un'ora dopo l'ultimo
+# keepalive dal client), a cui questo token si ispira
 
 _LOCK = Lock()
 _SESSIONS: dict[str, dict] = {}

@@ -4,7 +4,7 @@ import { api } from "../api";
 import Modal from "./Modal";
 
 const inputClass =
-  "w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500";
+  "w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500";
 
 export default function SettingsModal({ onClose }) {
   const [minutes, setMinutes] = useState(0);
@@ -44,12 +44,41 @@ export default function SettingsModal({ onClose }) {
   return (
     <Modal title="Impostazioni" onClose={onClose}>
       {loading ? (
-        <p className="text-sm text-slate-400">Caricamento...</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Caricamento...</p>
       ) : (
         <form onSubmit={handleSave} className="flex flex-col gap-4">
+          <p className="text-xs text-slate-600 dark:text-slate-500">
+            Default per i nuovi desktop, sempre modificabili anche dopo per singolo desktop da
+            "Dettagli".
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">RAM max predefinita (MB)</label>
+              <input
+                type="number"
+                min="1"
+                value={maxRamMb}
+                onChange={(e) => setMaxRamMb(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">CPU max predefinita (core)</label>
+              <input
+                type="number"
+                min="0.5"
+                step="0.5"
+                value={maxCpus}
+                onChange={(e) => setMaxCpus(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+          </div>
+
           <div>
-            <label className="mb-1 block text-sm text-slate-300">
-              Spegnimento automatico dopo N minuti di esecuzione
+            <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">
+              Spegnimento automatico predefinito dopo N minuti (0 = disabilitato)
             </label>
             <input
               type="number"
@@ -59,40 +88,6 @@ export default function SettingsModal({ onClose }) {
               onChange={(e) => setMinutes(e.target.value)}
               className={inputClass}
             />
-            <p className="mt-2 text-xs text-slate-500">
-              0 = disabilitato. Si applica a tutti i desktop, conta dal momento dell'avvio
-              (non rileva l'inattivita' reale: nessun segnale disponibile lato desktop).
-            </p>
-          </div>
-
-          <p className="text-xs text-slate-500">
-            Usati per i nuovi desktop quando non si sceglie un valore diverso alla creazione; si
-            possono cambiare anche dopo, per singolo desktop, da "Dettagli". Nessuna risorsa
-            illimitata: ogni desktop ha sempre un tetto, sia RAM che CPU.
-          </p>
-
-          <div>
-            <label className="mb-1 block text-sm text-slate-300">RAM massima predefinita (MB)</label>
-            <input
-              type="number"
-              min="1"
-              value={maxRamMb}
-              onChange={(e) => setMaxRamMb(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm text-slate-300">CPU massime predefinite (core)</label>
-            <input
-              type="number"
-              min="0.5"
-              step="0.5"
-              value={maxCpus}
-              onChange={(e) => setMaxCpus(e.target.value)}
-              className={inputClass}
-            />
-            <p className="mt-2 text-xs text-slate-500">Anche frazionario (es. 1.5).</p>
           </div>
 
           {error && <p className="text-sm text-red-400">{error}</p>}
@@ -101,7 +96,7 @@ export default function SettingsModal({ onClose }) {
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg bg-slate-800 px-4 py-2 text-sm hover:bg-slate-700"
+              className="rounded-lg bg-slate-100 dark:bg-slate-800 px-4 py-2 text-sm hover:bg-slate-200 dark:hover:bg-slate-700"
             >
               Annulla
             </button>

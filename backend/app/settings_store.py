@@ -5,7 +5,7 @@ from threading import Lock
 from app.config import settings
 
 _LOCK = Lock()
-_DEFAULTS = {"idle_timeout_minutes": 0, "default_max_ram_mb": 1024, "default_max_cpus": 1.0}
+_DEFAULTS = {"idle_timeout_minutes": 480, "default_max_ram_mb": 2048, "default_max_cpus": 2.0}
 
 
 def _path() -> str:
