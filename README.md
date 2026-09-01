@@ -200,12 +200,9 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
 - **Nessun percorso fisso verso un desktop.** Al click su "Apri", il manager
   verifica sessione utente + proprietà del desktop e genera un token opaco a
   scadenza (1h, in memoria — non sopravvive a un riavvio del manager, né
-  serve: un nuovo click ne genera uno nuovo). Il meccanismo è lo stesso stile
-  usato da Kasm per i suoi link diretti/di embedding (un token che vale da
-  solo, senza bisogno di un nuovo login): chi riceve il link lo può usare
+  serve: un nuovo click ne genera uno nuovo). Chi riceve il link lo può usare
   finché è valido, va quindi trattato come una credenziale temporanea, non
-  condiviso con leggerezza. La durata è allineata al "keepalive expiration"
-  di default di Kasm stesso. L'unico URL pubblico è `/session/<token>/`.
+  condiviso con leggerezza. L'unico URL pubblico è `/session/<token>/`.
   Traefik non ha nessuna route statica per i desktop:
   le legge da un endpoint interno del manager (`GET /internal/traefik-config`,
   protetto da un segreto condiviso `TRAEFIK_INTERNAL_SECRET`, mai esposto
@@ -309,35 +306,29 @@ va bene così com'è.
   controllato ogni 60 secondi da un task in background nel backend. Come
   RAM/CPU, è modificabile anche per singolo desktop da "Dettagli" (override
   che sostituisce il default globale solo per quel desktop). Non è
-  rilevamento di inattività reale: Selkies non espone alcun segnale di
-  input/attività utilizzabile per questo — è stato verificato prima di
-  implementare — quindi il timeout conta dal momento dell'avvio del
-  container, indipendentemente dall'uso effettivo.
+  rilevamento di inattività reale — Selkies non espone nessun segnale di
+  input/attività utilizzabile per questo — quindi il timeout conta dal
+  momento dell'avvio del container, indipendentemente dall'uso effettivo.
 - **Limiti CPU/RAM.** Ogni desktop ha sempre un tetto, sia RAM che CPU —
   nessuna risorsa illimitata. Il default globale (Settings, 2 vCPU / 2048 MB
   di fabbrica) si può cambiare in ogni momento, così come l'override per
   singolo desktop da "Dettagli"; su un desktop già esistente, Docker
   permette di alzare o abbassare un limite attivo con il container in
   esecuzione senza doverlo ricreare.
-- **Numero di desktop contemporanei.** Il totale flotta e il campionamento
-  CPU/RAM di ogni desktop RUNNING interrogano Docker in parallelo, un
-  thread per desktop (pool di default di Python: `min(32, core_host + 4)`).
-  È fatto così, con un solo poll condiviso (`GET /desktops/usage`) che
-  alimenta sia la barra "Totale" che tutte le card della dashboard admin —
-  coerente con come il resto della dashboard tiene aggiornati i propri dati
-  (polling periodico, come la lista desktop), non un flusso push a parte.
-  Un utente non-admin, senza barra "Totale" da tenere allineata, interroga
-  `/desktops/{id}/usage` per conto proprio.
-- **Reset password (admin).** Un dialog integrato nello stile dell'app
-  (nuova password + conferma), non più un prompt nativo del browser a campo
-  singolo.
+- **Aggiornamento CPU/RAM.** Un poll ogni 5 secondi interroga Docker in
+  parallelo per tutti i desktop RUNNING. Per l'admin un'unica chiamata
+  condivisa (`GET /desktops/usage`) alimenta sia la barra "Totale" che tutte
+  le card della dashboard; un utente normale, senza barra "Totale" da
+  tenere allineata, interroga `/desktops/{id}/usage` per i propri desktop.
+- **Reset password (admin).** Dialog integrato nello stile dell'app (nuova
+  password + conferma).
 - Il container del manager monta `/var/run/docker.sock` (per gestire i
   container) e `DATA_DIR` **allo stesso path** anche al suo interno: è
   necessario perché i bind-mount dei desktop vengono risolti dal Docker
   daemon dell'host, quindi i path passati devono coincidere con quelli
   reali sull'host.
-- "Riavvia" usa `container.restart()` invece di ricreare il container da
-  zero: il desktop riparte comunque, il container non viene ricreato.
+- "Riavvia" riavvia il container esistente: stato e dati restano, il
+  container non viene ricreato da zero.
 - Traefik usa un certificato TLS self-signed **persistente**
   (`deploy/traefik/certs/`, generato una volta sola all'installazione), non
   quello effimero interno di Traefik: quest'ultimo si rigenera ad ogni

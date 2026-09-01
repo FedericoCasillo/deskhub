@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { scheduleAligned } from "../pollAlign";
 
-const POLL_MS = 8000;
+const POLL_MS = 5000;
 
 // Un solo poll condiviso di /desktops/usage, non uno per la barra "Totale" e
 // uno per ogni card: entrambi leggerebbero lo stesso dato ma con due

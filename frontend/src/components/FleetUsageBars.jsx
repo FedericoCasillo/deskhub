@@ -29,7 +29,7 @@ export default function FleetUsageBars({ usage }) {
   const memUsedMb = usage?.mem_used_mb ?? null;
   const maxRamMb = usage?.max_ram_mb ?? 0;
   const memPercent = memUsedMb != null && maxRamMb > 0 ? (memUsedMb / maxRamMb) * 100 : null;
-  const memTail = memUsedMb == null ? "—" : `${Math.round(memUsedMb)}${maxRamMb > 0 ? `/${maxRamMb}` : ""}MB`;
+  const memTail = memUsedMb == null ? "—" : `${Math.round(memUsedMb)}${maxRamMb > 0 ? ` su ${maxRamMb}` : ""}MB`;
 
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3">

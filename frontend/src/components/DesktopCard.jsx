@@ -17,7 +17,7 @@ const BUTTON_TONES = {
   danger: "bg-red-900/60 hover:bg-red-800 text-red-100",
 };
 
-const USAGE_POLL_MS = 8000;
+const USAGE_POLL_MS = 5000;
 
 // Etichetta nascosta sotto "sm": sulla card, in una sola colonna su mobile,
 // lo spazio manca; da "sm" in su (anche nella griglia a piu' colonne) resta
@@ -167,7 +167,7 @@ export default function DesktopCard({ desktop, isAdmin, sharedUsage, onStart, on
   const memTail =
     usage?.mem_used_mb == null
       ? "—"
-      : `${Math.round(usage.mem_used_mb)}${max_ram_mb > 0 ? `/${max_ram_mb}` : ""}MB`;
+      : `${Math.round(usage.mem_used_mb)}${max_ram_mb > 0 ? ` su ${max_ram_mb}` : ""}MB`;
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">

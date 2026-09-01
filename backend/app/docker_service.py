@@ -296,26 +296,6 @@ def get_desktop_info(desktop_id: str) -> DesktopInfo:
     )
 
 
-# Il totale flotta e la card di un singolo desktop interrogano entrambi
-# get_container_usage() in modo indipendente, in teoria quasi nello stesso
-# istante (poll allineati sulla stessa griglia temporale, vedi
-# frontend/src/pollAlign.js, entrambi ogni 8s) ma non perfettamente: due
-# timer del browser schedulati separatamente possono comunque scartare di
-# qualche secondo l'uno dall'altro. Dato che Docker mantiene un solo
-# campione "precedente" per container con cui calcolare il delta di CPU, il
-# secondo dei due a chiamare "consuma" il campione appena lasciato dal primo
-# e si ritrova con una finestra di delta troppo corta, quindi un numero
-# diverso da quello letto un attimo prima per lo stesso container. La cache
-# resta valida quasi fino all'intero ciclo di polling (7s su 8s): qualunque
-# sia lo scarto reale fra i due timer, il secondo chiamante nello stesso
-# giro trova quasi sempre il campione del primo gia' pronto, invece di
-# generare una nuova richiesta concorrente a Docker per lo stesso container.
-# Resta comunque piu' corta di 8s: il polling periodico dello stesso
-# consumer (stessa card, stesso giro dopo) prende sempre un campione fresco.
-_USAGE_CACHE_TTL_SECONDS = 7
-_usage_cache: dict[str, tuple[float, dict]] = {}
-
-
 def _sample_container_usage(container) -> dict:
     try:
         raw = container.stats(stream=False)
@@ -352,10 +332,6 @@ def get_container_usage(desktop_id: str) -> dict:
     Docker campiona due istanti di cgroup per calcolare un delta) — il
     chiamante deve eseguirla in un thread separato (asyncio.to_thread), mai
     direttamente nell'event loop."""
-    cached = _usage_cache.get(desktop_id)
-    if cached is not None and time.monotonic() - cached[0] < _USAGE_CACHE_TTL_SECONDS:
-        return cached[1]
-
     container = _find_container(get_container_name(desktop_id))
     if container is None:
         return {"cpu_percent": None, "mem_used_mb": None}
@@ -373,7 +349,6 @@ def get_container_usage(desktop_id: str) -> dict:
         # chiamante e falsare le somme aggregate (vedi fleet_usage).
         result = _sample_container_usage(container)
 
-    _usage_cache[desktop_id] = (time.monotonic(), result)
     return result
 
 
