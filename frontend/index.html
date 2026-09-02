@@ -4,17 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DeskHub</title>
-    <!-- Colore esplicito per la scheda del browser: senza questo, Safari su
-         iPad puo' "confondere" lo sfondo di questa scheda con quello scuro
-         dichiarato dal manifest della UI del desktop remoto quando si passa
-         dall'una all'altra scheda (bug noto di WebKit sul tab-tinting). Il
-         valore qui e' solo un placeholder: lo script subito sotto lo aggiorna
-         subito al vero tema attivo (chiaro o scuro) prima del primo paint —
-         deve stare PRIMA dello script per esistere gia' nel DOM quando lo
-         script lo cerca (l'ordine nel documento e' quello di esecuzione).
-         Se restasse fisso su un colore, sarebbe sbagliato ogni volta che il
-         tema attivo e' l'altro. -->
-    <meta name="theme-color" content="#020617" />
     <!-- Applica il tema (classe "dark" + theme-color sopra) prima del primo
          paint di React: se aspettasse l'effect di useTheme() ci sarebbe un
          lampo del tema sbagliato ad ogni caricamento (schermo chiaro che poi
