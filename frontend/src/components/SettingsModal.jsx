@@ -10,6 +10,7 @@ export default function SettingsModal({ onClose }) {
   const [minutes, setMinutes] = useState(0);
   const [maxRamMb, setMaxRamMb] = useState(0);
   const [maxCpus, setMaxCpus] = useState(0);
+  const [sudo, setSudo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -21,6 +22,7 @@ export default function SettingsModal({ onClose }) {
         setMinutes(s.idle_timeout_minutes);
         setMaxRamMb(s.default_max_ram_mb);
         setMaxCpus(s.default_max_cpus);
+        setSudo(s.default_sudo);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -35,6 +37,7 @@ export default function SettingsModal({ onClose }) {
         idle_timeout_minutes: Number(minutes),
         default_max_ram_mb: Number(maxRamMb),
         default_max_cpus: Number(maxCpus),
+        default_sudo: sudo,
       })
       .then(onClose)
       .catch((e) => setError(e.message))
@@ -89,6 +92,16 @@ export default function SettingsModal({ onClose }) {
               className={inputClass}
             />
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={sudo}
+              onChange={(e) => setSudo(e.target.checked)}
+              className="h-4 w-4 accent-emerald-600"
+            />
+            Permessi di amministratore (sudo) nei nuovi desktop
+          </label>
 
           {error && <p className="text-sm text-red-400">{error}</p>}
 

@@ -1,6 +1,6 @@
 import asyncio
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from app import desktops_store, docker_service, sessions_store, settings_store, users_store
 from app.jobs import job_manager
@@ -160,6 +160,9 @@ async def create_desktop(payload: CreateDesktopRequest, admin: dict = Depends(re
     desktops_store.set_owner(target_id, payload.owner)
     desktops_store.set_name(target_id, name)
     desktops_store.set_limits(target_id, max_ram_mb, max_cpus, idle_timeout_minutes)
+    if payload.reuse_id is None:
+        # Un desktop riusato tiene il sudo che aveva.
+        desktops_store.set_sudo(target_id, defaults["default_sudo"])
 
     job_id = job_manager.start(
         lambda job: docker_service.create_desktop(target_id, max_ram_mb, max_cpus, job.progress)
@@ -177,6 +180,28 @@ def set_desktop_limits(desktop_id: str, payload: DesktopLimitsPayload, admin: di
         desktop_id, payload.max_ram_mb, payload.max_cpus, payload.idle_timeout_minutes
     )
     return docker_service.get_desktop_info(desktop_id)
+
+
+@router.get("/{desktop_id}/thumbnail")
+def desktop_thumbnail(desktop_id: str, user: dict = Depends(get_current_user)):
+    """Miniatura JPEG dello schermo, per il proprietario e l'admin."""
+    _validate(desktop_id)
+    _require_access(desktop_id, user)
+    try:
+        image = docker_service.get_thumbnail(desktop_id)
+    except LookupError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return Response(content=image, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+
+@router.post("/{desktop_id}/recreate", response_model=JobStarted)
+async def recreate_desktop(desktop_id: str, admin: dict = Depends(require_admin)):
+    _validate(desktop_id)
+    sessions_store.revoke_for_desktop(desktop_id)
+    job_id = job_manager.start(lambda job: docker_service.recreate_desktop(desktop_id, job.progress))
+    return JobStarted(job_id=job_id)
 
 
 @router.put("/{desktop_id}/sudo", response_model=DesktopInfo)

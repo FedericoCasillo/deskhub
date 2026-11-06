@@ -174,6 +174,16 @@ export default function App() {
     });
   }
 
+  function handleRecreate({ id, name }) {
+    setInfoId(null);
+    setConfirm({
+      title: `Ricrea ${name}`,
+      message:
+        "Il container viene rifatto da zero con l'immagine attuale, tenendo la configurazione (la cartella dell'utente, i limiti, sudo). Si perde solo cio' che era stato installato a mano nel container. Se e' aperto, il desktop si chiude.",
+      onConfirm: () => runJob(`Ricreazione ${name}`, api.recreateDesktop(id)),
+    });
+  }
+
   function handleCreate(payload) {
     setShowCreate(false);
     runJob("Creazione nuovo desktop", api.createDesktop(payload));
@@ -279,7 +289,7 @@ export default function App() {
         />
       )}
 
-      {infoId && <InfoDrawer id={infoId} onClose={() => setInfoId(null)} />}
+      {infoId && <InfoDrawer id={infoId} onClose={() => setInfoId(null)} onRecreate={handleRecreate} />}
 
       {confirm && (
         <ConfirmDialog

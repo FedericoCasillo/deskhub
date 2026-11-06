@@ -44,6 +44,8 @@ export const api = {
     }),
   getSettings: () => request("/settings"),
   updateSettings: (payload) => request("/settings", { method: "PUT", body: JSON.stringify(payload) }),
+  thumbnailUrl: (id) => `${API_BASE}/desktops/${id}/thumbnail?t=${Date.now()}`,
+  recreateDesktop: (id) => request(`/desktops/${id}/recreate`, { method: "POST" }),
   setDesktopSudo: (id, enabled) =>
     request(`/desktops/${id}/sudo`, { method: "PUT", body: JSON.stringify({ enabled }) }),
   setDesktopLimits: (id, payload) =>

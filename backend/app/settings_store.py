@@ -5,7 +5,7 @@ from threading import Lock
 from app.config import settings
 
 _LOCK = Lock()
-_DEFAULTS = {"idle_timeout_minutes": 480, "default_max_ram_mb": 2048, "default_max_cpus": 2.0}
+_DEFAULTS = {"idle_timeout_minutes": 480, "default_max_ram_mb": 2048, "default_max_cpus": 2.0, "default_sudo": False}
 
 
 def _path() -> str:
@@ -22,11 +22,12 @@ def get() -> dict:
     return {**_DEFAULTS, **data}
 
 
-def update(idle_timeout_minutes: int, default_max_ram_mb: int, default_max_cpus: float) -> dict:
+def update(idle_timeout_minutes: int, default_max_ram_mb: int, default_max_cpus: float, default_sudo: bool) -> dict:
     data = {
         "idle_timeout_minutes": idle_timeout_minutes,
         "default_max_ram_mb": default_max_ram_mb,
         "default_max_cpus": default_max_cpus,
+        "default_sudo": default_sudo,
     }
     with _LOCK:
         with open(_path(), "w") as f:

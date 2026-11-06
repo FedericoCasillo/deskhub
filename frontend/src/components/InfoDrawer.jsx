@@ -15,7 +15,7 @@ function Row({ label, value }) {
 const inputClass =
   "w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500";
 
-export default function InfoDrawer({ id, onClose }) {
+export default function InfoDrawer({ id, onClose, onRecreate }) {
   const [info, setInfo] = useState(null);
   const [error, setError] = useState("");
   const [maxRamMb, setMaxRamMb] = useState("");
@@ -69,7 +69,7 @@ export default function InfoDrawer({ id, onClose }) {
       {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
       {!info && !error && <p className="text-sm text-slate-500 dark:text-slate-400">Caricamento...</p>}
       {info && (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
           <dl className="space-y-2 text-sm">
             <Row label="Nome" value={info.name} />
             <Row label="Id" value={info.id} />
@@ -82,7 +82,7 @@ export default function InfoDrawer({ id, onClose }) {
             <Row label="Rete del desktop" value={info.network_present ? "Presente" : "Assente"} />
           </dl>
 
-          <div className="flex flex-col gap-1 border-t border-slate-200 dark:border-slate-800 pt-4">
+          <div className="border-t border-slate-200 dark:border-slate-800 pt-2">
             <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
               <input
                 type="checkbox"
@@ -93,13 +93,9 @@ export default function InfoDrawer({ id, onClose }) {
               />
               Permessi di amministratore (sudo) nel desktop
             </label>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Spenti di default: chi usa il desktop non può installare programmi né diventare root. Il
-              cambio vale subito, anche a desktop acceso.
-            </p>
           </div>
 
-          <form onSubmit={handleSaveLimits} className="flex flex-col gap-3 border-t border-slate-200 dark:border-slate-800 pt-4">
+          <form onSubmit={handleSaveLimits} className="flex flex-col gap-3 border-t border-slate-200 dark:border-slate-800 pt-2">
             <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Limiti risorse</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -147,6 +143,21 @@ export default function InfoDrawer({ id, onClose }) {
               </button>
             </div>
           </form>
+
+          {info.container_present && (
+            <div className="flex items-center justify-between gap-4 border-t border-slate-200 dark:border-slate-800 pt-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Rifà il container con l&apos;immagine attuale (anteprima compresa), tenendo la configurazione.
+              </p>
+              <button
+                type="button"
+                onClick={() => onRecreate({ id: info.id, name: info.name })}
+                className="shrink-0 rounded-lg bg-slate-100 dark:bg-slate-800 px-4 py-2 text-sm hover:bg-slate-200 dark:hover:bg-slate-700"
+              >
+                Ricrea
+              </button>
+            </div>
+          )}
         </div>
       )}
     </Modal>

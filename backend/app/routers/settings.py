@@ -14,4 +14,6 @@ def get_settings(admin: dict = Depends(require_admin)):
 
 @router.put("", response_model=SettingsPayload)
 def update_settings(payload: SettingsPayload, admin: dict = Depends(require_admin)):
-    return settings_store.update(payload.idle_timeout_minutes, payload.default_max_ram_mb, payload.default_max_cpus)
+    return settings_store.update(
+        payload.idle_timeout_minutes, payload.default_max_ram_mb, payload.default_max_cpus, payload.default_sudo
+    )

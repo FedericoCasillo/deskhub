@@ -45,6 +45,8 @@ server, i dati restano tuoi, il costo è solo quello dell'hardware.
 - Nome libero per ogni desktop (es. "web", "ufficio")
 - Riutilizzo di configurazioni orfane (container eliminato con dati mantenuti sul disco)
 - Limiti RAM/CPU e timeout di spegnimento automatico sempre attivi per desktop, con default globale e override per singolo desktop, modificabili anche a container già avviato
+- Anteprima dal vivo dello schermo in ogni card (aggiornata ogni 10 secondi, nella forma reale dello schermo: verticale se il desktop è aperto da un telefono in verticale); un clic la apre
+- "Ricrea" (da Dettagli): rifà il container con l'immagine attuale tenendo configurazione, limiti e sudo
 
 **👥 Utenti e permessi**
 - Login gestito dalla webapp stessa: utenti, password, sessione via cookie
@@ -60,7 +62,7 @@ server, i dati restano tuoi, il costo è solo quello dell'hardware.
 - Ogni desktop isolato su una rete Docker sua: da un desktop non si raggiungono gli altri desktop né il manager
 - URL di sessione opachi e a scadenza, validi solo insieme al login di chi li ha aperti: mai un percorso fisso o indovinabile verso un desktop
 - "Esci" e cambio password chiudono davvero le sessioni (lato server), non solo il cookie del browser
-- Chi usa un desktop è un utente normale, senza sudo: l'admin lo accende per singolo desktop
+- Chi usa un desktop è un utente normale, senza sudo: l'admin sceglie il default nelle impostazioni e lo cambia per singolo desktop
 - Spegnimento automatico configurabile dopo N minuti di esecuzione continua
 - Cartelle di configurazione protette: permessi o proprietario alterati da fuori bloccano l'avvio con un errore esplicito, invece di un fallimento silenzioso
 
@@ -226,14 +228,26 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
   senza password (pensato per un desktop personale); in deskhub chi usa un
   desktop è un utente normale, come un dipendente su un PC aziendale: niente
   `sudo`, e fuori dal gruppo `sudo`, quindi niente root nemmeno da `pkexec` o
-  dalle installazioni grafiche. L'admin lo accende per il singolo desktop
-  che ne ha bisogno da "Dettagli" (vale subito, anche a desktop acceso; il
-  manager lo riapplica a ogni avvio). I programmi per tutti vanno
+  dalle installazioni grafiche. Il default per i desktop nuovi è nelle
+  impostazioni (⚙), spento di fabbrica; per il singolo desktop si cambia da
+  "Dettagli" (vale subito, anche a desktop acceso; il manager lo riapplica a
+  ogni avvio). I programmi per tutti vanno
   nell'immagine dei desktop (`webtop-image/`). I desktop creati prima di
   questa opzione partono con sudo spento. Spegnere sudo a chi l'ha avuto non
   toglie quello che può aver già fatto da root nel suo container: per
   ripartire puliti si elimina il desktop mantenendo la configurazione e lo
   si ricrea riusandola.
+- **Anteprime.** La miniatura la fa il desktop stesso con la cattura di
+  pixelflux (il motore di Selkies, variabile `PIXELFLUX_CU`), e il manager
+  la prende con `docker exec`, non dalla rete. Quel servizio (porta 5000 nel
+  container) permette anche di comandare mouse e tastiera: lo raggiungono
+  solo il desktop stesso e Traefik, che non ha nessuna rotta verso quella
+  porta. La miniatura la vedono il proprietario e l'admin; il manager la
+  rifà al massimo ogni 10 secondi per desktop, e solo se qualcuno la sta
+  guardando. I desktop creati prima delle anteprime vanno ricreati
+  ("Ricrea"). Mostrare lo schermo dei desktop è un controllo a distanza:
+  se i desktop sono di dipendenti, valgono le regole sul controllo dei
+  lavoratori (in Italia l'art. 4 dello Statuto dei lavoratori).
 - **Login revocabili.** Il cookie del manager (7 giorni, `HttpOnly`,
   `Secure`, `SameSite=Lax`) contiene solo l'id di un login registrato lato
   server: "Esci" lo cancella davvero, quindi un cookie copiato prima non vale

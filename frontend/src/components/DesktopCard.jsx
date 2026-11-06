@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { scheduleAligned } from "../pollAlign";
 import { IconInfo, IconList, IconPlay, IconRefresh, IconSquare, IconTrash } from "./icons";
+import DesktopThumbnail from "./DesktopThumbnail";
 import UsageBar from "./UsageBar";
 
 const STATUS_STYLES = {
@@ -80,7 +81,7 @@ function useDesktopUsage(id, status, sharedUsage) {
 }
 
 export default function DesktopCard({ desktop, isAdmin, sharedUsage, onStart, onStop, onRestart, onDelete, onLogs, onInfo }) {
-  const { id, name, status, owner, max_ram_mb, max_cpus } = desktop;
+  const { id, name, status, owner, max_ram_mb, max_cpus, thumbnail } = desktop;
   const usage = useDesktopUsage(id, status, sharedUsage);
   const [opening, setOpening] = useState(false);
   const [openError, setOpenError] = useState("");
@@ -179,6 +180,15 @@ export default function DesktopCard({ desktop, isAdmin, sharedUsage, onStart, on
       </div>
 
       {isAdmin && owner && <p className="text-xs text-slate-600 dark:text-slate-500">Proprietario: {owner}</p>}
+
+      <DesktopThumbnail
+        id={id}
+        status={status}
+        available={thumbnail}
+        isAdmin={isAdmin}
+        onOpen={handleOpen}
+        opening={opening}
+      />
 
       {status === "RUNNING" && (
         <div className="flex flex-col gap-1.5">

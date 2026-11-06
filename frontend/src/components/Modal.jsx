@@ -4,7 +4,10 @@ export default function Modal({ title, children, onClose }) {
   useBodyScrollLock();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    // Dall'alto e scorrevole: una finestra piu' alta dello schermo (Dettagli,
+    // Impostazioni su telefono) si legge tutta scorrendo, invece di restare
+    // tagliata a meta'.
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:py-10">
       <div className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{title}</h2>

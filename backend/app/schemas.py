@@ -15,6 +15,9 @@ class DesktopSummary(BaseModel):
     max_ram_mb: int = 0
     max_cpus: float = 0
     idle_timeout_minutes: int = 0
+    # False per i desktop creati prima delle anteprime (manca il servizio di
+    # cattura nel container): servono ricreati.
+    thumbnail: bool = False
 
 
 class DesktopListResponse(BaseModel):
@@ -122,6 +125,8 @@ class SettingsPayload(BaseModel):
     # override alla creazione. Nessuna risorsa illimitata: sempre un tetto.
     default_max_ram_mb: int = Field(gt=0, le=1_048_576)
     default_max_cpus: float = Field(gt=0, le=256)
+    # Sudo dei desktop nuovi (poi si cambia per desktop da Dettagli).
+    default_sudo: bool = False
 
 
 class LoginRequest(BaseModel):

@@ -242,6 +242,74 @@ def set_desktop_sudo(desktop_id: str, enabled: bool) -> None:
         apply_sudo(container, desktop_id)
 
 
+# ---- anteprime ----------------------------------------------------------------
+# Una miniatura JPEG dello schermo, fatta dentro il container (pixelflux ha una
+# cattura gia' pronta e l'immagine ha Pillow): al manager arrivano pochi KB.
+# Rispetta la forma dello schermo (un desktop aperto da telefono in verticale
+# da' una miniatura verticale). In memoria, rifatta al massimo ogni
+# THUMBNAIL_TTL_SECONDS per desktop, qualunque sia il numero di chi guarda.
+THUMBNAIL_PORT = 5000
+THUMBNAIL_MAX_SIDE = 480
+THUMBNAIL_TTL_SECONDS = 10
+_THUMBNAIL_SCRIPT = f"""
+import base64, io, json, sys, urllib.request
+from PIL import Image
+req = urllib.request.Request("http://127.0.0.1:{THUMBNAIL_PORT}/computer-use",
+    data=b'{{"action":"screenshot"}}', headers={{"Content-Type": "application/json"}})
+png = base64.b64decode(json.load(urllib.request.urlopen(req, timeout=8))["data"])
+img = Image.open(io.BytesIO(png)).convert("RGB")
+img.thumbnail(({THUMBNAIL_MAX_SIDE}, {THUMBNAIL_MAX_SIDE}))
+out = io.BytesIO()
+img.save(out, "JPEG", quality=70)
+sys.stdout.buffer.write(out.getvalue())
+"""
+_thumbnails: dict[str, tuple[float, bytes]] = {}
+_thumbnail_locks: dict[str, threading.Lock] = {}
+_thumbnail_locks_guard = threading.Lock()
+
+
+def _has_thumbnail_service(container) -> bool:
+    env = container.attrs.get("Config", {}).get("Env") or []
+    return any(e.startswith("PIXELFLUX_CU=") for e in env)
+
+
+def get_thumbnail(desktop_id: str) -> bytes:
+    with _thumbnail_locks_guard:
+        lock = _thumbnail_locks.setdefault(desktop_id, threading.Lock())
+    with lock:
+        cached = _thumbnails.get(desktop_id)
+        if cached and time.time() - cached[0] < THUMBNAIL_TTL_SECONDS:
+            return cached[1]
+        container = _find_container(get_container_name(desktop_id))
+        if container is None or container.status != "running":
+            raise LookupError("Il desktop non e' acceso.")
+        if not _has_thumbnail_service(container):
+            raise LookupError("Anteprima non disponibile: il desktop va ricreato.")
+        result = container.exec_run(["/lsiopy/bin/python3", "-c", _THUMBNAIL_SCRIPT], user="abc", demux=True)
+        stdout = (result.output or (None, None))[0]
+        if result.exit_code != 0 or not stdout:
+            raise RuntimeError("Anteprima non riuscita (desktop ancora in avvio?).")
+        _thumbnails[desktop_id] = (time.time(), stdout)
+        return stdout
+
+
+def recreate_desktop(desktop_id: str, progress: Callable[[str], None]) -> dict:
+    """Ricrea il container con la stessa configurazione (cartella /config,
+    limiti, sudo): prende l'immagine attuale e le impostazioni dei desktop
+    nuovi (anteprime). Si perde solo cio' che era stato installato a mano
+    nel container fuori da /config."""
+    container = _find_container(get_container_name(desktop_id))
+    if container is None:
+        raise LookupError(f"Il container del desktop {desktop_id} non esiste.")
+    limits = get_active_limits(desktop_id)
+    progress("Rimozione del container attuale (la configurazione resta)...")
+    with _network_lock:
+        container.remove(force=True)
+        remove_desktop_network(desktop_id)
+    _thumbnails.pop(desktop_id, None)
+    return create_desktop(desktop_id, limits["max_ram_mb"], limits["max_cpus"], progress)
+
+
 def remove_desktop_network(desktop_id: str) -> None:
     try:
         net = client.networks.get(get_desktop_network_name(desktop_id))
@@ -393,6 +461,7 @@ def list_desktops(owner: Optional[str] = None) -> DesktopListResponse:
         # Docker stesso, verificato), inaccettabile nel poll veloce ogni 5s
         # su cui gira questa lista.
         limits = get_active_limits(desktop_id)
+        container = _find_container(get_container_name(desktop_id))
 
         desktops.append(
             DesktopSummary(
@@ -404,6 +473,7 @@ def list_desktops(owner: Optional[str] = None) -> DesktopListResponse:
                 max_ram_mb=limits["max_ram_mb"],
                 max_cpus=limits["max_cpus"],
                 idle_timeout_minutes=limits["idle_timeout_minutes"],
+                thumbnail=container is not None and _has_thumbnail_service(container),
             )
         )
 
@@ -753,6 +823,12 @@ def create_desktop(
                 # normale. L'admin lo riaccende per singolo desktop, vedi
                 # apply_sudo.
                 "DISABLE_SUDO": "true",
+                # Servizio di cattura di pixelflux (il motore di Selkies):
+                # da qui il manager prende le anteprime, via docker exec
+                # (vedi get_thumbnail). Ascolta solo nel container, sulla
+                # rete del desktop dove c'e' solo Traefik, che non ha rotte
+                # verso questa porta.
+                "PIXELFLUX_CU": str(THUMBNAIL_PORT),
                 # Niente SUBFOLDER: il container serve sempre se stesso sulla
                 # root (default dell'immagine quando la variabile e' assente).
                 # Non ha piu' bisogno di un percorso proprio, univoco per
