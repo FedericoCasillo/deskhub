@@ -234,7 +234,7 @@ fi
 # meccanismo dell'immagine webtop), cosi' un'installazione normale dipende
 # solo da GitHub e GHCR e non deve mai buildare nulla in locale. MANAGER_SOURCE
 # =build (opt-in, es. per chi modifica il codice) forza la build da sorgente.
-MANAGER_PINNED_IMAGE="ghcr.io/federicocasillo/deskhub-manager@sha256:06fef3e1268e6e21ad6caeba48ea12d233c77897dda7f4990d3daaec1ee8929b"
+MANAGER_PINNED_IMAGE="ghcr.io/federicocasillo/deskhub-manager@sha256:d9e65e788323b88a8f25236b8d20416255298ab491861784456d53dcafa812bf"
 MANAGER_LOCAL_IMAGE="deskhub-manager:latest"
 
 if [ "${MANAGER_SOURCE:-pull}" = "build" ]; then
