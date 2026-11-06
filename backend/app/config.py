@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     webtop_source: str = "pull"
     webtop_pinned_image: str = (
         "ghcr.io/federicocasillo/deskhub-webtop"
-        "@sha256:1594766070ed4fee7dd486e646bea8f79482307e1cf268d973977f91f8212170"
+        "@sha256:251e8682c693a0f176ddadb05b8aead99b7c1fd9e8b1cd302463f7cb1e7a7a63"
     )
 
     # Rete condivisa solo da manager e Traefik: i desktop NON ci stanno piu'.

@@ -137,8 +137,8 @@ se serve) e ne assegna la proprietà all'utente che lancia lo script.
    compose build` prima del resto):
 
    ```bash
-   docker pull ghcr.io/federicocasillo/deskhub-manager@sha256:c73080ac8b305ec3c3719f244939af867f6654b3d76af856f787344ada93077c
-   docker tag ghcr.io/federicocasillo/deskhub-manager@sha256:c73080ac8b305ec3c3719f244939af867f6654b3d76af856f787344ada93077c deskhub-manager:latest
+   docker pull ghcr.io/federicocasillo/deskhub-manager@sha256:5809a3739199a7ba46e951da058313740a1d69f776d2c7acbe05f8bd8edc1888
+   docker tag ghcr.io/federicocasillo/deskhub-manager@sha256:5809a3739199a7ba46e951da058313740a1d69f776d2c7acbe05f8bd8edc1888 deskhub-manager:latest
    docker compose up -d
    ```
 
