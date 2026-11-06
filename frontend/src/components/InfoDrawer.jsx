@@ -69,7 +69,7 @@ export default function InfoDrawer({ id, onClose }) {
       {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
       {!info && !error && <p className="text-sm text-slate-500 dark:text-slate-400">Caricamento...</p>}
       {info && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-4">
           <dl className="space-y-2 text-sm">
             <Row label="Nome" value={info.name} />
             <Row label="Id" value={info.id} />
@@ -82,8 +82,8 @@ export default function InfoDrawer({ id, onClose }) {
             <Row label="Rete del desktop" value={info.network_present ? "Presente" : "Assente"} />
           </dl>
 
-          <div className="border-t border-slate-200 dark:border-slate-800 pt-2">
-            <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+          <div className="border-t border-slate-200 dark:border-slate-800 pt-4">
+            <label className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
               <input
                 type="checkbox"
                 checked={info.sudo_enabled}
@@ -91,11 +91,11 @@ export default function InfoDrawer({ id, onClose }) {
                 onChange={handleToggleSudo}
                 className="h-4 w-4 accent-emerald-600"
               />
-              Permessi di amministratore (sudo) nel desktop
+              Permessi di amministratore nel desktop
             </label>
           </div>
 
-          <form onSubmit={handleSaveLimits} className="flex flex-col gap-3 border-t border-slate-200 dark:border-slate-800 pt-2">
+          <form onSubmit={handleSaveLimits} className="flex flex-col gap-3 border-t border-slate-200 dark:border-slate-800 pt-4">
             <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Limiti risorse</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -133,7 +133,7 @@ export default function InfoDrawer({ id, onClose }) {
                 className={inputClass}
               />
             </div>
-            <div className="flex justify-end">
+            <div className="mt-1 flex justify-end">
               <button
                 type="submit"
                 disabled={saving}

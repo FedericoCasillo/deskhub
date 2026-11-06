@@ -93,14 +93,14 @@ export default function SettingsModal({ onClose }) {
             />
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+          <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
             <input
               type="checkbox"
               checked={sudo}
               onChange={(e) => setSudo(e.target.checked)}
               className="h-4 w-4 accent-emerald-600"
             />
-            Permessi di amministratore (sudo) nei nuovi desktop
+            Permessi di amministratore nei nuovi desktop
           </label>
 
           {error && <p className="text-sm text-red-400">{error}</p>}

@@ -55,7 +55,7 @@ export default function DesktopThumbnail({ id, status, available, onOpen, openin
   else if (!available) message = "Anteprima non disponibile";
   else if (!src) message = failed ? "Anteprima in arrivo..." : "Caricamento anteprima...";
 
-  const box = "relative flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-lg bg-slate-200 dark:bg-slate-950";
+  const box = "relative flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800";
 
   if (message) {
     return (
