@@ -196,14 +196,6 @@ def desktop_thumbnail(desktop_id: str, user: dict = Depends(get_current_user)):
     return Response(content=image, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
-@router.post("/{desktop_id}/recreate", response_model=JobStarted)
-async def recreate_desktop(desktop_id: str, admin: dict = Depends(require_admin)):
-    _validate(desktop_id)
-    sessions_store.revoke_for_desktop(desktop_id)
-    job_id = job_manager.start(lambda job: docker_service.recreate_desktop(desktop_id, job.progress))
-    return JobStarted(job_id=job_id)
-
-
 @router.put("/{desktop_id}/sudo", response_model=DesktopInfo)
 def set_desktop_sudo(desktop_id: str, payload: DesktopSudoPayload, admin: dict = Depends(require_admin)):
     """Sudo nel desktop: spento di default, l'admin lo accende per chi ne ha

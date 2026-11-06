@@ -16,7 +16,7 @@ class DesktopSummary(BaseModel):
     max_cpus: float = 0
     idle_timeout_minutes: int = 0
     # False per i desktop creati prima delle anteprime (manca il servizio di
-    # cattura nel container): servono ricreati.
+    # cattura nel container).
     thumbnail: bool = False
 
 

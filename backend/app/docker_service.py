@@ -284,30 +284,13 @@ def get_thumbnail(desktop_id: str) -> bytes:
         if container is None or container.status != "running":
             raise LookupError("Il desktop non e' acceso.")
         if not _has_thumbnail_service(container):
-            raise LookupError("Anteprima non disponibile: il desktop va ricreato.")
+            raise LookupError("Anteprima non disponibile: desktop creato prima delle anteprime.")
         result = container.exec_run(["/lsiopy/bin/python3", "-c", _THUMBNAIL_SCRIPT], user="abc", demux=True)
         stdout = (result.output or (None, None))[0]
         if result.exit_code != 0 or not stdout:
             raise RuntimeError("Anteprima non riuscita (desktop ancora in avvio?).")
         _thumbnails[desktop_id] = (time.time(), stdout)
         return stdout
-
-
-def recreate_desktop(desktop_id: str, progress: Callable[[str], None]) -> dict:
-    """Ricrea il container con la stessa configurazione (cartella /config,
-    limiti, sudo): prende l'immagine attuale e le impostazioni dei desktop
-    nuovi (anteprime). Si perde solo cio' che era stato installato a mano
-    nel container fuori da /config."""
-    container = _find_container(get_container_name(desktop_id))
-    if container is None:
-        raise LookupError(f"Il container del desktop {desktop_id} non esiste.")
-    limits = get_active_limits(desktop_id)
-    progress("Rimozione del container attuale (la configurazione resta)...")
-    with _network_lock:
-        container.remove(force=True)
-        remove_desktop_network(desktop_id)
-    _thumbnails.pop(desktop_id, None)
-    return create_desktop(desktop_id, limits["max_ram_mb"], limits["max_cpus"], progress)
 
 
 def remove_desktop_network(desktop_id: str) -> None:

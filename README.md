@@ -46,7 +46,6 @@ server, i dati restano tuoi, il costo è solo quello dell'hardware.
 - Riutilizzo di configurazioni orfane (container eliminato con dati mantenuti sul disco)
 - Limiti RAM/CPU e timeout di spegnimento automatico sempre attivi per desktop, con default globale e override per singolo desktop, modificabili anche a container già avviato
 - Anteprima dal vivo dello schermo in ogni card (aggiornata ogni 10 secondi, nella forma reale dello schermo: verticale se il desktop è aperto da un telefono in verticale); un clic la apre
-- "Ricrea" (da Dettagli): rifà il container con l'immagine attuale tenendo configurazione, limiti e sudo
 
 **👥 Utenti e permessi**
 - Login gestito dalla webapp stessa: utenti, password, sessione via cookie
@@ -244,8 +243,8 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
   solo il desktop stesso e Traefik, che non ha nessuna rotta verso quella
   porta. La miniatura la vedono il proprietario e l'admin; il manager la
   rifà al massimo ogni 10 secondi per desktop, e solo se qualcuno la sta
-  guardando. I desktop creati prima delle anteprime vanno ricreati
-  ("Ricrea"). Mostrare lo schermo dei desktop è un controllo a distanza:
+  guardando. I desktop creati prima delle anteprime non ce l'hanno: si
+  eliminano mantenendo la configurazione e si ricreano riusandola. Mostrare lo schermo dei desktop è un controllo a distanza:
   se i desktop sono di dipendenti, valgono le regole sul controllo dei
   lavoratori (in Italia l'art. 4 dello Statuto dei lavoratori).
 - **Login revocabili.** Il cookie del manager (7 giorni, `HttpOnly`,

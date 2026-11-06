@@ -12,7 +12,7 @@ const THUMBNAIL_POLL_MS = 10000;
 // il dispositivo da cui e' aperto (orizzontale da PC, verticale da telefono).
 // La nuova immagine sostituisce la vecchia solo quando e' gia' scaricata:
 // niente lampeggi. In pausa quando la scheda del browser non e' visibile.
-export default function DesktopThumbnail({ id, status, available, isAdmin, onOpen, opening }) {
+export default function DesktopThumbnail({ id, status, available, onOpen, opening }) {
   const [src, setSrc] = useState(null);
   const [failed, setFailed] = useState(false);
   const active = status === "RUNNING" && available;
@@ -52,7 +52,7 @@ export default function DesktopThumbnail({ id, status, available, isAdmin, onOpe
   let message = null;
   if (status === "STOPPED") message = "Spento";
   else if (status === "ORPHAN") message = "Senza container";
-  else if (!available) message = isAdmin ? "Anteprima non disponibile: ricrea il desktop da Dettagli" : "Anteprima non disponibile";
+  else if (!available) message = "Anteprima non disponibile";
   else if (!src) message = failed ? "Anteprima in arrivo..." : "Caricamento anteprima...";
 
   const box = "relative flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-lg bg-slate-200 dark:bg-slate-950";

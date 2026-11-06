@@ -15,7 +15,7 @@ function Row({ label, value }) {
 const inputClass =
   "w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm outline-none focus:border-emerald-500";
 
-export default function InfoDrawer({ id, onClose, onRecreate }) {
+export default function InfoDrawer({ id, onClose }) {
   const [info, setInfo] = useState(null);
   const [error, setError] = useState("");
   const [maxRamMb, setMaxRamMb] = useState("");
@@ -143,21 +143,6 @@ export default function InfoDrawer({ id, onClose, onRecreate }) {
               </button>
             </div>
           </form>
-
-          {info.container_present && (
-            <div className="flex items-center justify-between gap-4 border-t border-slate-200 dark:border-slate-800 pt-2">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Rifà il container con l&apos;immagine attuale (anteprima compresa), tenendo la configurazione.
-              </p>
-              <button
-                type="button"
-                onClick={() => onRecreate({ id: info.id, name: info.name })}
-                className="shrink-0 rounded-lg bg-slate-100 dark:bg-slate-800 px-4 py-2 text-sm hover:bg-slate-200 dark:hover:bg-slate-700"
-              >
-                Ricrea
-              </button>
-            </div>
-          )}
         </div>
       )}
     </Modal>

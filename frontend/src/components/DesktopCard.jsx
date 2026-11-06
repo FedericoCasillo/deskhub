@@ -185,7 +185,6 @@ export default function DesktopCard({ desktop, isAdmin, sharedUsage, onStart, on
         id={id}
         status={status}
         available={thumbnail}
-        isAdmin={isAdmin}
         onOpen={handleOpen}
         opening={opening}
       />
