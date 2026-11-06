@@ -45,6 +45,12 @@ def revoke_for_desktop(desktop_id: str) -> None:
             del _SESSIONS[token]
 
 
+def revoke_for_user(username: str) -> None:
+    with _LOCK:
+        for token in [t for t, s in _SESSIONS.items() if s["username"] == username]:
+            del _SESSIONS[token]
+
+
 def all_active() -> dict:
     """Ritorna le sessioni valide, ripulendo di passaggio quelle scadute
     (nessun task periodico dedicato: con volumi personali/piccoli non serve,

@@ -1,9 +1,12 @@
+import re
 import secrets
+from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query, Response
 
-from app import docker_service, sessions_store
+from app import desktops_store, docker_service, sessions_store
 from app.config import settings
+from app.security import COOKIE_NAME, user_from_token
 
 router = APIRouter()
 
@@ -33,7 +36,17 @@ def traefik_dynamic_config(secret: str | None = Query(default=None)):
     _check_secret(secret)
 
     routers: dict = {}
-    middlewares: dict = {}
+    # Ogni richiesta verso un desktop passa prima dal manager (forwardAuth):
+    # il token nel percorso da solo non basta, serve anche il login.
+    auth = "deskhub-session-auth"
+    middlewares: dict = {
+        auth: {
+            "forwardAuth": {
+                "address": f"{settings.manager_internal_url}/internal/session-auth"
+                f"?secret={quote(settings.traefik_internal_secret or '', safe='')}"
+            }
+        }
+    }
     services: dict = {}
 
     for token, session in sessions_store.all_active().items():
@@ -48,7 +61,7 @@ def traefik_dynamic_config(secret: str | None = Query(default=None)):
             "rule": f"PathPrefix(`/session/{token}/`)",
             "entryPoints": ["websecure"],
             "tls": {},
-            "middlewares": [name],
+            "middlewares": [auth, name],
             "service": name,
         }
         services[name] = {"loadBalancer": {"servers": [{"url": f"http://{ip}:3000"}]}}
@@ -68,3 +81,35 @@ def traefik_dynamic_config(secret: str | None = Query(default=None)):
             "services": services,
         }
     }
+
+
+SESSION_PATH_RE = re.compile(r"^/session/([A-Za-z0-9_-]+)/")
+
+
+@router.get("/internal/session-auth")
+def session_auth(
+    secret: str | None = Query(default=None),
+    x_forwarded_uri: str = Header(default=""),
+    cookie: str | None = Header(default=None),
+):
+    """forwardAuth di Traefik per /session/<token>/: passa solo se il token e'
+    valido E il browser ha un login attivo dello stesso utente che ha aperto
+    la sessione, con accesso ancora valido al desktop. Un link copiato o
+    finito in mano ad altri non apre niente senza quel login; un logout o un
+    cambio password chiudono anche l'accesso ai desktop."""
+    _check_secret(secret)
+    match = SESSION_PATH_RE.match(x_forwarded_uri)
+    session = sessions_store.get_session(match.group(1)) if match else None
+    if session is None:
+        raise HTTPException(401, "Sessione non valida.")
+    token = None
+    for part in (cookie or "").split(";"):
+        name, _, value = part.strip().partition("=")
+        if name == COOKIE_NAME:
+            token = value
+    user = user_from_token(token)
+    if user is None or user["username"] != session["username"]:
+        raise HTTPException(401, "Accesso al desktop non autorizzato.")
+    if user["role"] != "admin" and desktops_store.get_owner(session["desktop_id"]) != user["username"]:
+        raise HTTPException(401, "Accesso al desktop non autorizzato.")
+    return Response(status_code=200)

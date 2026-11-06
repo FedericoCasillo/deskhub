@@ -1,7 +1,8 @@
+import ipaddress
 import os
 import re
 import shutil
-import socket
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
@@ -79,11 +80,128 @@ def get_container_status(desktop_id: str) -> Status:
     return "RUNNING" if container.status == "running" else "STOPPED"
 
 
-def ensure_proxy_network() -> None:
+# ---- isolamento: una rete per desktop ---------------------------------------
+# Ogni desktop sta su una bridge sua, condivisa solo con Traefik (vedi
+# config.proxy_network). Traefik puo' raggiungere ogni desktop; un desktop
+# raggiunge Traefik (cioe' solo le route pubbliche, protette dal token) e
+# l'esterno via NAT, ma non gli altri desktop ne' il manager. Anche il
+# manager non e' sulle reti dei desktop: il controllo di prontezza passa da
+# docker exec (_wait_service_ready), non dalla rete.
+
+# Rientrante: tiene insieme creazione della rete e del container (e rimozione
+# di container e rete) rispetto a reconcile_networks, che altrimenti potrebbe
+# togliere come orfana la rete di un desktop appena creata, prima del container.
+_network_lock = threading.RLock()
+# Avviso di Traefik mancante una volta sola, non a ogni giro del controllo.
+_traefik_missing_warned: set = set()
+
+
+def get_desktop_network_name(desktop_id: str) -> str:
+    return f"{settings.desktop_network_prefix}{desktop_id}"
+
+
+def _used_subnets() -> list:
+    used = []
+    for net in client.networks.list():
+        for cfg in (net.attrs.get("IPAM") or {}).get("Config") or []:
+            try:
+                used.append(ipaddress.ip_network(cfg.get("Subnet", ""), strict=False))
+            except ValueError:
+                pass
+    return used
+
+
+def _free_subnet() -> str:
+    used = _used_subnets()
+    for candidate in ipaddress.ip_network(settings.desktop_subnet_pool).subnets(new_prefix=28):
+        if not any(candidate.overlaps(u) for u in used if u.version == 4):
+            return str(candidate)
+    raise RuntimeError(
+        f"Nessuna sottorete libera in DESKTOP_SUBNET_POOL ({settings.desktop_subnet_pool}) "
+        "per la rete del desktop."
+    )
+
+
+def _network_container_ids(net) -> set[str]:
+    net.reload()
+    return set((net.attrs.get("Containers") or {}).keys())
+
+
+def _connect_traefik(net) -> None:
     try:
-        client.networks.get(settings.proxy_network)
+        traefik = client.containers.get(settings.traefik_container)
     except NotFound:
-        client.networks.create(settings.proxy_network, driver="bridge")
+        if not _traefik_missing_warned:
+            print(
+                f"[rete] container Traefik '{settings.traefik_container}' non trovato: "
+                "le reti dei desktop restano senza reverse proxy (TRAEFIK_CONTAINER?)"
+            )
+            _traefik_missing_warned.add(True)
+        return
+    _traefik_missing_warned.clear()
+    if traefik.id not in _network_container_ids(net):
+        net.connect(traefik)
+
+
+def ensure_desktop_network(desktop_id: str):
+    """Crea (se manca) la rete del desktop e ci collega Traefik."""
+    name = get_desktop_network_name(desktop_id)
+    with _network_lock:
+        try:
+            net = client.networks.get(name)
+        except NotFound:
+            ipam = docker.types.IPAMConfig(pool_configs=[docker.types.IPAMPool(subnet=_free_subnet())])
+            net = client.networks.create(
+                name, driver="bridge", ipam=ipam, labels={"deskhub.desktop": desktop_id}
+            )
+        _connect_traefik(net)
+    return net
+
+
+def _isolate_container(container, desktop_id: str) -> None:
+    """Il desktop deve stare sulla sua rete e su nessun'altra: la collega e
+    stacca le altre (anche la rete comune dei desktop creati prima
+    dell'isolamento, che cosi' migrano da soli)."""
+    net = ensure_desktop_network(desktop_id)
+    container.reload()
+    networks = container.attrs.get("NetworkSettings", {}).get("Networks", {}) or {}
+    if net.name not in networks:
+        net.connect(container)
+    for other in networks:
+        if other != net.name:
+            client.networks.get(other).disconnect(container)
+
+
+def remove_desktop_network(desktop_id: str) -> None:
+    try:
+        net = client.networks.get(get_desktop_network_name(desktop_id))
+    except NotFound:
+        return
+    for container_id in _network_container_ids(net):
+        net.disconnect(container_id, force=True)
+    net.remove()
+
+
+def reconcile_networks() -> None:
+    """Controllo periodico: ogni desktop isolato sulla sua rete con Traefik
+    collegato (un Traefik ricreato perde i collegamenti alle reti dei
+    desktop), e via le reti dei desktop che non esistono piu'."""
+    with _network_lock:
+        _reconcile_networks()
+
+
+def _reconcile_networks() -> None:
+    ids = _container_ids()
+    for desktop_id in ids:
+        container = _find_container(get_container_name(desktop_id))
+        if container is not None:
+            _isolate_container(container, desktop_id)
+    # Solo le reti di questa installazione (prefisso del nome): un'altra
+    # installazione sullo stesso Docker ha le sue.
+    for net in client.networks.list(filters={"label": "deskhub.desktop"}):
+        desktop_id = net.attrs.get("Labels", {}).get("deskhub.desktop", "")
+        if net.name == get_desktop_network_name(desktop_id) and desktop_id not in ids:
+            remove_desktop_network(desktop_id)
 
 
 def _config_ids() -> set[str]:
@@ -276,7 +394,7 @@ def get_desktop_info(desktop_id: str) -> DesktopInfo:
     if container is not None:
         container.reload()
         networks = container.attrs.get("NetworkSettings", {}).get("Networks", {}) or {}
-        network_present = settings.proxy_network in networks
+        network_present = get_desktop_network_name(desktop_id) in networks
 
     limits = get_active_limits(desktop_id)
 
@@ -389,7 +507,7 @@ def stream_logs(desktop_id: str, tail: int = 200, stop_event=None):
 
 
 def get_container_ip(desktop_id: str) -> Optional[str]:
-    """IP del container sulla rete proxy, usato dal provider HTTP di Traefik
+    """IP del container sulla sua rete (vedi ensure_desktop_network), usato dal provider HTTP di Traefik
     per instradare le sessioni /session/<token>/ (routing dinamico generato
     da sessions_store, non piu' via label statiche per-desktop: niente path
     prevedibile /desk{id}/ esposto esternamente, vedi routers/sessions.py)."""
@@ -398,7 +516,7 @@ def get_container_ip(desktop_id: str) -> Optional[str]:
         return None
     container.reload()
     networks = container.attrs.get("NetworkSettings", {}).get("Networks", {}) or {}
-    network = networks.get(settings.proxy_network) or {}
+    network = networks.get(get_desktop_network_name(desktop_id)) or {}
     return network.get("IPAddress") or None
 
 
@@ -421,22 +539,16 @@ def _wait_service_ready(container, progress: Callable[[str], None], attempts: in
     costringendo a chiudere e riaprire la scheda. Aspettando qui che la porta
     risponda prima di segnalare l'operazione come riuscita, quella finestra si
     chiude: se il servizio non risponde entro il timeout non blocchiamo
-    comunque l'operazione (il container e' comunque partito), ma avvisiamo."""
-    container.reload()
-    networks = container.attrs.get("NetworkSettings", {}).get("Networks", {}) or {}
-    network = networks.get(settings.proxy_network) or {}
-    ip = network.get("IPAddress")
-    if not ip:
-        return
-
+    comunque l'operazione (il container e' comunque partito), ma avvisiamo.
+    Il controllo si fa dentro il container (porta 3000 in LISTEN nella tabella
+    TCP del kernel), non per rete: il manager non sta sulle reti dei desktop."""
+    check = ["sh", "-c", "grep -qE ':0BB8 [0-9A-F]+:[0-9A-F]{4} 0A' /proc/net/tcp /proc/net/tcp6"]
     for attempt in range(attempts):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(1)
-            try:
-                sock.connect((ip, 3000))
+        try:
+            if container.exec_run(check).exit_code == 0:
                 return
-            except OSError:
-                pass
+        except docker.errors.APIError:
+            pass
         progress(f"Attendo che il servizio desktop sia pronto... ({attempt + 1}/{attempts})")
         time.sleep(1)
 
@@ -528,7 +640,6 @@ def create_desktop(
     max_cpus: float,
     progress: Callable[[str], None],
 ) -> dict:
-    ensure_proxy_network()
     ensure_image(progress)
 
     container_name = get_container_name(desktop_id)
@@ -548,6 +659,7 @@ def create_desktop(
 
     progress(f"Creazione del container {container_name}...")
 
+    _network_lock.acquire()
     try:
         container = client.containers.run(
             settings.webtop_image,
@@ -556,10 +668,12 @@ def create_desktop(
             environment={
                 "CUSTOM_USER": CUSTOM_USER,
                 # Niente PASSWORD: l'unico effetto nell'immagine webtop e'
-                # abilitare la sua Basic Auth nginx interna, ridondante con
-                # l'autorizzazione gia' fatta all'emissione del token di
-                # sessione (verificato nello script di init dell'immagine:
-                # PASSWORD non tocca l'account Linux, solo /etc/nginx/.htpasswd).
+                # abilitare la sua Basic Auth nginx interna (non tocca
+                # l'account Linux, solo /etc/nginx/.htpasswd), che comunque
+                # non coprirebbe il WebSocket di Selkies sulla 8082. La
+                # protezione e' la rete: il desktop sta su una rete sua dove
+                # c'e' solo Traefik, che fa passare solo chi ha il token di
+                # sessione (vedi ensure_desktop_network).
                 "PUID": "1000",
                 "PGID": "1000",
                 # Niente SUBFOLDER: il container serve sempre se stesso sulla
@@ -572,18 +686,22 @@ def create_desktop(
             volumes={config_dir: {"bind": "/config", "mode": "rw"}},
             shm_size="1g",
             restart_policy={"Name": "unless-stopped"},
-            network=settings.proxy_network,
+            network=ensure_desktop_network(desktop_id).name,
             **_mem_kwargs(max_ram_mb),
             **_cpu_kwargs(max_cpus),
         )
     except Exception as exc:
         if not config_preexisting:
             shutil.rmtree(config_dir, ignore_errors=True)
+        remove_desktop_network(desktop_id)
         raise RuntimeError(f"Errore nella creazione del container: {exc}") from exc
+    finally:
+        _network_lock.release()
 
     if not _wait_running(container, progress):
         logs = container.logs(tail=50).decode(errors="replace")
         container.remove(force=True)
+        remove_desktop_network(desktop_id)
         if not config_preexisting:
             shutil.rmtree(config_dir, ignore_errors=True)
         raise RuntimeError(f"Il container non risulta RUNNING.\n\nUltimi log:\n{logs}")
@@ -594,7 +712,6 @@ def create_desktop(
 
 
 def start_desktop(desktop_id: str, progress: Callable[[str], None]) -> dict:
-    ensure_proxy_network()
 
     container_name = get_container_name(desktop_id)
     container = _find_container(container_name)
@@ -616,6 +733,7 @@ def start_desktop(desktop_id: str, progress: Callable[[str], None]) -> dict:
             "Nessun dato e' stato toccato: verifica manualmente la cartella prima di riprovare."
         )
 
+    _isolate_container(container, desktop_id)
     progress("Avvio del desktop...")
     container.start()
 
@@ -658,6 +776,7 @@ def restart_desktop(desktop_id: str, progress: Callable[[str], None]) -> dict:
     if container.status != "running":
         raise RuntimeError(f"Il desktop {desktop_id} non e' RUNNING.")
 
+    _isolate_container(container, desktop_id)
     progress("Riavvio del desktop...")
     container.restart()
 
@@ -689,10 +808,11 @@ def delete_desktop(desktop_id: str, remove_config: bool, progress: Callable[[str
         return {"container_removed": False, "config_removed": True}
 
     progress(f"Rimozione del container {container_name}...")
-    container.remove(force=True)
-
-    if _find_container(container_name) is not None:
-        raise RuntimeError(f"Il container non e' stato rimosso: {container_name}")
+    with _network_lock:
+        container.remove(force=True)
+        if _find_container(container_name) is not None:
+            raise RuntimeError(f"Il container non e' stato rimosso: {container_name}")
+        remove_desktop_network(desktop_id)
 
     if not has_config:
         desktops_store.remove(desktop_id)

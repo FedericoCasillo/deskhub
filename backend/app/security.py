@@ -6,7 +6,7 @@ from fastapi import Cookie, Depends, HTTPException
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from starlette.websockets import WebSocket
 
-from app import users_store
+from app import logins_store, users_store
 from app.config import settings
 
 COOKIE_NAME = "manager_session"
@@ -52,27 +52,35 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def create_session_token(username: str) -> str:
-    return _serializer.dumps({"username": username})
+    # Nel cookie solo l'id del login (vedi logins_store): vale finche' il
+    # login esiste lato server, non per il solo fatto di essere firmato.
+    return _serializer.dumps({"sid": logins_store.create(username)})
 
 
-def read_session_token(token: str) -> str | None:
+def read_session_token(token: str) -> tuple[str, str] | None:
+    """(utente, id del login) se il cookie e' valido e il login e' ancora attivo."""
     try:
         data = _serializer.loads(token, max_age=SESSION_MAX_AGE_SECONDS)
     except (BadSignature, SignatureExpired):
         return None
-    return data.get("username")
+    sid = data.get("sid") if isinstance(data, dict) else None
+    if not sid:
+        return None
+    username = logins_store.get_username(sid)
+    return (username, sid) if username else None
 
 
 def user_from_token(token: str | None) -> dict | None:
     if token is None:
         return None
-    username = read_session_token(token)
-    if username is None:
+    found = read_session_token(token)
+    if found is None:
         return None
+    username, sid = found
     record = users_store.get_user(username)
     if record is None:
         return None
-    return {"username": username, "role": record["role"]}
+    return {"username": username, "role": record["role"], "sid": sid}
 
 
 def get_current_user(manager_session: str | None = Cookie(default=None, alias=COOKIE_NAME)) -> dict:

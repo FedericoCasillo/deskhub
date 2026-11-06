@@ -155,7 +155,7 @@ PROXY_NETWORK=$PROXY_NETWORK
 EOF
   (cd deploy/traefik && $DOCKER compose up -d)
 else
-  warn "SKIP_TRAEFIK=1: presumo tu abbia gia' un reverse proxy configurato sulla rete $PROXY_NETWORK, con TRAEFIK_INTERNAL_SECRET impostato allo stesso modo."
+  warn "SKIP_TRAEFIK=1: presumo tu abbia gia' un reverse proxy configurato sulla rete $PROXY_NETWORK, con TRAEFIK_INTERNAL_SECRET impostato allo stesso modo, e il nome del suo container in TRAEFIK_CONTAINER (.env): il manager lo collega alla rete di ogni desktop."
 fi
 
 # --- 6. cartella dati dedicata -------------------------------------------

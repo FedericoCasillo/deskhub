@@ -11,6 +11,11 @@ services:
       - WEBTOP_IMAGE=${WEBTOP_IMAGE:-deskhub-webtop:latest}
       - WEBTOP_SOURCE=${WEBTOP_SOURCE:-pull}
       - PROXY_NETWORK=${PROXY_NETWORK:-deskhub-proxy}
+      # Ogni desktop ha una rete sua, condivisa solo con Traefik: sottoreti
+      # ritagliate da qui (non deve sovrapporsi alla LAN), Traefik collegato
+      # per nome di container.
+      - DESKTOP_SUBNET_POOL=${DESKTOP_SUBNET_POOL:-10.213.0.0/16}
+      - TRAEFIK_CONTAINER=${TRAEFIK_CONTAINER:-deskhub-traefik}
       # Usate solo al primissimo avvio (nessun utente ancora esistente) per
       # creare l'amministratore iniziale della webapp; ignorate in seguito.
       - MANAGER_INITIAL_ADMIN_USER=${MANAGER_INITIAL_ADMIN_USER:-}
@@ -30,7 +35,9 @@ services:
       - traefik.enable=true
       - traefik.docker.network=${PROXY_NETWORK:-deskhub-proxy}
 
-      - traefik.http.routers.manager.rule=PathPrefix(`/manager`)
+      # /manager/internal/... resta fuori: quegli endpoint (route dinamiche e
+      # controllo delle sessioni) li chiama solo Traefik dalla rete interna.
+      - traefik.http.routers.manager.rule=PathPrefix(`/manager`) && !PathPrefix(`/manager/internal`)
       - traefik.http.routers.manager.entrypoints=websecure
       - traefik.http.routers.manager.tls=true
       - traefik.http.routers.manager.middlewares=manager-stripprefix

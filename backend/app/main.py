@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from app import users_store
 from app.config import settings
 from app.idle_timeout import idle_timeout_loop
+from app.network_loop import network_reconcile_loop
 from app.routers import auth, desktops, settings as settings_router, traefik_config, users, ws
 from app.security import hash_password
 
@@ -76,6 +77,9 @@ async def start_background_tasks() -> None:
     # Riferimento tenuto su app.state: un task creato senza riferimenti forti
     # puo' essere raccolto dal garbage collector prima di completare.
     app.state.idle_timeout_task = asyncio.create_task(idle_timeout_loop())
+    # Anche al primo giro: i desktop creati prima dell'isolamento migrano
+    # subito sulla loro rete.
+    app.state.network_task = asyncio.create_task(network_reconcile_loop())
 
 
 app.include_router(auth.router, prefix="/api")

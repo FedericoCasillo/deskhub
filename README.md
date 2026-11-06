@@ -57,7 +57,9 @@ server, i dati restano tuoi, il costo è solo quello dell'hardware.
 - Conteggio dal vivo di desktop in esecuzione, fermi e orfani
 
 **🔒 Sicurezza e privacy**
-- URL di sessione opachi e a scadenza: mai un percorso fisso o indovinabile verso un desktop
+- Ogni desktop isolato su una rete Docker sua: da un desktop non si raggiungono gli altri desktop né il manager
+- URL di sessione opachi e a scadenza, validi solo insieme al login di chi li ha aperti: mai un percorso fisso o indovinabile verso un desktop
+- "Esci" e cambio password chiudono davvero le sessioni (lato server), non solo il cookie del browser
 - Spegnimento automatico configurabile dopo N minuti di esecuzione continua
 - Cartelle di configurazione protette: permessi o proprietario alterati da fuori bloccano l'avvio con un errore esplicito, invece di un fallimento silenzioso
 
@@ -75,9 +77,9 @@ bash install.sh
 ```
 
 Lo script è pensato per essere
-rilanciato: se trova un'installazione esistente la aggiorna (`git pull` +
-rebuild) invece di ripartire da zero — è anche il modo per aggiornare in
-futuro.
+rilanciato: se trova un'installazione esistente la aggiorna (`git pull` e
+le nuove immagini pinnate) invece di ripartire da zero — è anche il modo per
+aggiornare in futuro.
 
 Variabili opzionali per un'installazione non interattiva (env var da
 esportare prima di lanciare lo script): `TARGET_DIR` (default `/opt/deskhub`),
@@ -193,19 +195,39 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
   
 ## Sicurezza
 
+- **Ogni desktop su una rete sua.** Un desktop sta su una rete Docker
+  dedicata (`deskhub-net-<id>`) dove c'è solo Traefik: non vede gli altri
+  desktop né il manager, quindi dal browser aperto dentro un desktop non si
+  arriva al desktop di un altro (i servizi interni del desktop — nginx su
+  3000/3001 e il WebSocket di Selkies su 8082 — non hanno credenziali
+  proprie: la protezione è che nessuno tranne Traefik li possa raggiungere).
+  Verso la LAN (stampanti, altri dispositivi) e Internet si esce normalmente
+  via NAT. Le sottoreti sono /28 ritagliate da `DESKTOP_SUBNET_POOL`; il
+  manager crea e toglie le reti da sé, ci collega Traefik e, ogni 10 secondi,
+  ricollega un Traefik ricreato e sposta sulla loro rete i desktop creati
+  prima di questa versione.
 - **Nessun percorso fisso verso un desktop.** Al click su "Apri", il manager
   verifica sessione utente + proprietà del desktop e genera un token opaco a
-  scadenza (1h, in memoria — non sopravvive a un riavvio del manager, né
-  serve: un nuovo click ne genera uno nuovo). Chi riceve il link lo può usare
-  finché è valido, va quindi trattato come una credenziale temporanea, non
-  condiviso con leggerezza. L'unico URL pubblico è `/session/<token>/`.
-  Traefik non ha nessuna route statica per i desktop:
-  le legge da un endpoint interno del manager (`GET /internal/traefik-config`,
-  protetto da un segreto condiviso `TRAEFIK_INTERNAL_SECRET`, mai esposto
-  pubblicamente) che elenca solo le sessioni valide in quel momento e
-  instrada verso l'IP del container giusto sulla rete Docker. Indovinare o
-  enumerare un URL non porta a nessun desktop. Fermare, riavviare o
-  eliminare un desktop revoca subito le sue sessioni aperte.
+  scadenza (1 ora dalla creazione, in memoria — non sopravvive a un riavvio
+  del manager, né serve: un nuovo click ne genera uno nuovo). L'unico URL
+  pubblico è `/session/<token>/`, e il token da solo non basta: per ogni
+  richiesta Traefik chiede al manager (forwardAuth) se il browser ha un login
+  attivo dello stesso utente che ha aperto la sessione, con accesso ancora
+  valido al desktop. Un link copiato o finito in mano ad altri non apre
+  niente. Traefik non ha nessuna route statica per i desktop: le legge da un
+  endpoint interno del manager (`GET /internal/traefik-config`, protetto da
+  un segreto condiviso `TRAEFIK_INTERNAL_SECRET`) che elenca solo le sessioni
+  valide in quel momento e instrada verso l'IP del container giusto sulla
+  sua rete. Gli endpoint `/internal/...` non hanno una rotta pubblica: li
+  chiama solo Traefik dalla rete interna. Fermare, riavviare o eliminare un
+  desktop revoca subito le sue sessioni aperte.
+- **Login revocabili.** Il cookie del manager (7 giorni, `HttpOnly`,
+  `Secure`, `SameSite=Lax`) contiene solo l'id di un login registrato lato
+  server: "Esci" lo cancella davvero, quindi un cookie copiato prima non vale
+  più. Cambiare la propria password chiude le sessioni sugli altri
+  dispositivi; il reset da parte dell'admin e l'eliminazione di un utente
+  chiudono tutte le sue sessioni. Dopo 5 password sbagliate di fila su un
+  nome utente, il login su quel nome è sospeso per un minuto.
 - **Cartelle di configurazione blindate.** Se una cartella di config viene
   modificata da fuori al manager (permessi cambiati, proprietario diverso da
   quello atteso, symlink sospetto), il manager rifiuta di avviare o riusare
@@ -280,7 +302,9 @@ che ospita il progetto stesso.
 | `WEBTOP_SOURCE`     | no  | `pull`                                        | `pull` = usa lo snapshot pinnato su GHCR; `build` = ricostruisci sempre da `webtop-image/Dockerfile`. |
 | `WEBTOP_IMAGE`      | no  | `deskhub-webtop:latest`                       | Tag locale con cui gira l'immagine desktop. |
 | `MANAGER_SOURCE`    | no  | `pull`                                        | `pull` = usa lo snapshot pinnato su GHCR (gestito da `install.sh`); `build` = builda sempre da sorgente. |
-| `PROXY_NETWORK`     | no  | `deskhub-proxy`                               | Rete Docker esterna condivisa con Traefik. |
+| `PROXY_NETWORK`     | no  | `deskhub-proxy`                               | Rete Docker esterna condivisa da manager e Traefik (i desktop non ci stanno). |
+| `DESKTOP_SUBNET_POOL` | no | `10.213.0.0/16`                              | Da qui si ritaglia una /28 per la rete di ogni desktop: non deve sovrapporsi alla LAN né ad altre reti raggiungibili dai desktop. |
+| `TRAEFIK_CONTAINER` | no  | `deskhub-traefik`                             | Container del reverse proxy che il manager collega alla rete di ogni desktop. |
 | `TRAEFIK_IMAGE`     | no  | snapshot pinnato su GHCR (in `deploy/traefik`) | Immagine di Traefik da usare. |
 
 ### Portare l'installazione su un altro host
@@ -288,8 +312,9 @@ che ospita il progetto stesso.
 `install.sh` fa già tutto questo automaticamente. Se preferisci farlo a
 mano: imposta `DATA_DIR` nel nuovo `.env` con un path reale sul nuovo host
 e assicurati che un Traefik equivalente giri sulla rete `PROXY_NETWORK`
-(entrypoint `websecure`, provider Docker) — quello in `deploy/traefik/`
-va bene così com'è.
+(entrypoint `websecure`, provider Docker, provider HTTP verso
+`http://deskhub:8000/internal/traefik-config`) con il nome di container in
+`TRAEFIK_CONTAINER` — quello in `deploy/traefik/` va bene così com'è.
 
 ## Note implementative
 

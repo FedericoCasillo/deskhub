@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app import users_store
+from app import logins_store, sessions_store, users_store
 from app.schemas import CreateUserRequest, SetPasswordRequest, UserOut
 from app.security import hash_password, require_admin
 
@@ -27,6 +27,7 @@ def set_password(username: str, payload: SetPasswordRequest, admin: dict = Depen
     if record is None:
         raise HTTPException(404, "Utente non trovato.")
     users_store.set_password(username, hash_password(payload.password))
+    logins_store.revoke_user(username)
     return UserOut(username=username, role=record["role"])
 
 
@@ -43,4 +44,6 @@ def delete_user(username: str, admin: dict = Depends(require_admin)):
         raise HTTPException(400, "Non puoi eliminare l'ultimo amministratore rimasto.")
 
     users_store.delete_user(username)
+    logins_store.revoke_user(username)
+    sessions_store.revoke_for_user(username)
     return {}
