@@ -73,7 +73,7 @@ export default function InfoDrawer({ id, onClose }) {
             <Row label="Rete del desktop" value={info.network_present ? "Presente" : "Assente"} />
           </dl>
 
-          <form onSubmit={handleSave} className="flex flex-col gap-3 pt-4">
+          <form onSubmit={handleSave} className="flex flex-col gap-3">
             <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Limiti risorse</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
