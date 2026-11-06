@@ -44,6 +44,8 @@ export const api = {
     }),
   getSettings: () => request("/settings"),
   updateSettings: (payload) => request("/settings", { method: "PUT", body: JSON.stringify(payload) }),
+  setDesktopSudo: (id, enabled) =>
+    request(`/desktops/${id}/sudo`, { method: "PUT", body: JSON.stringify({ enabled }) }),
   setDesktopLimits: (id, payload) =>
     request(`/desktops/${id}/limits`, { method: "PUT", body: JSON.stringify(payload) }),
 

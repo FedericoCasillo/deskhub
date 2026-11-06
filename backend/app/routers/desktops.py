@@ -11,6 +11,7 @@ from app.schemas import (
     DesktopLimitsPayload,
     DesktopListResponse,
     DesktopSessionOut,
+    DesktopSudoPayload,
     DesktopUsage,
     FleetUsage,
     JobStarted,
@@ -175,6 +176,17 @@ def set_desktop_limits(desktop_id: str, payload: DesktopLimitsPayload, admin: di
     docker_service.apply_desktop_limits(
         desktop_id, payload.max_ram_mb, payload.max_cpus, payload.idle_timeout_minutes
     )
+    return docker_service.get_desktop_info(desktop_id)
+
+
+@router.put("/{desktop_id}/sudo", response_model=DesktopInfo)
+def set_desktop_sudo(desktop_id: str, payload: DesktopSudoPayload, admin: dict = Depends(require_admin)):
+    """Sudo nel desktop: spento di default, l'admin lo accende per chi ne ha
+    bisogno. Vale subito se il desktop e' acceso."""
+    _validate(desktop_id)
+    if desktop_id not in docker_service.collect_ids():
+        raise HTTPException(404, "Desktop non trovato.")
+    docker_service.set_desktop_sudo(desktop_id, payload.enabled)
     return docker_service.get_desktop_info(desktop_id)
 
 

@@ -75,6 +75,20 @@ def set_limits(desktop_id: str, max_ram_mb: int, max_cpus: float, idle_timeout_m
         _save(data)
 
 
+def get_sudo(desktop_id: str) -> bool:
+    # Spento se mai impostato: i desktop creati prima di questa opzione
+    # perdono sudo finche' l'admin non lo riaccende.
+    with _LOCK:
+        return bool(_load().get(desktop_id, {}).get("sudo", False))
+
+
+def set_sudo(desktop_id: str, enabled: bool) -> None:
+    with _LOCK:
+        data = _load()
+        data.setdefault(desktop_id, {})["sudo"] = enabled
+        _save(data)
+
+
 def remove(desktop_id: str) -> None:
     with _LOCK:
         data = _load()

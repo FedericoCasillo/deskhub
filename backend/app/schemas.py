@@ -37,6 +37,7 @@ class DesktopInfo(BaseModel):
     max_ram_mb: int = 0
     max_cpus: float = 0
     idle_timeout_minutes: int = 0
+    sudo_enabled: bool = False
 
 
 class OrphanEntry(BaseModel):
@@ -61,6 +62,10 @@ class CreateDesktopRequest(BaseModel):
     # come max_ram_mb/max_cpus sopra. 0 = spegnimento automatico disabilitato
     # per questo desktop.
     idle_timeout_minutes: Optional[int] = Field(default=None, ge=0, le=1440)
+
+
+class DesktopSudoPayload(BaseModel):
+    enabled: bool
 
 
 class DesktopLimitsPayload(BaseModel):

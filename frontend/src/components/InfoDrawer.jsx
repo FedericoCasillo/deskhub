@@ -5,7 +5,7 @@ import Modal from "./Modal";
 
 function Row({ label, value }) {
   return (
-    <div className="flex justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-2">
+    <div className="flex justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-2 last:border-b-0 last:pb-0">
       <dt className="text-slate-500 dark:text-slate-400">{label}</dt>
       <dd className="break-all text-right font-mono">{value}</dd>
     </div>
@@ -22,6 +22,7 @@ export default function InfoDrawer({ id, onClose }) {
   const [maxCpus, setMaxCpus] = useState("");
   const [idleTimeoutMinutes, setIdleTimeoutMinutes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingSudo, setSavingSudo] = useState(false);
 
   function refresh() {
     api
@@ -52,6 +53,17 @@ export default function InfoDrawer({ id, onClose }) {
       .finally(() => setSaving(false));
   }
 
+  function handleToggleSudo(event) {
+    const enabled = event.target.checked;
+    setError("");
+    setSavingSudo(true);
+    api
+      .setDesktopSudo(id, enabled)
+      .then(setInfo)
+      .catch((e) => setError(e.message))
+      .finally(() => setSavingSudo(false));
+  }
+
   return (
     <Modal title={`Dettagli ${info?.name ?? id}`} onClose={onClose}>
       {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
@@ -67,8 +79,25 @@ export default function InfoDrawer({ id, onClose }) {
             <Row label="Container presente" value={info.container_present ? "Si" : "No"} />
             <Row label="Configurazione" value={info.config_dir} />
             <Row label="Configurazione presente" value={info.config_present ? "Si" : "No"} />
-            <Row label="Rete proxy" value={info.network_present ? "Presente" : "Assente"} />
+            <Row label="Rete del desktop" value={info.network_present ? "Presente" : "Assente"} />
           </dl>
+
+          <div className="flex flex-col gap-1 border-t border-slate-200 dark:border-slate-800 pt-4">
+            <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={info.sudo_enabled}
+                disabled={savingSudo}
+                onChange={handleToggleSudo}
+                className="h-4 w-4 accent-emerald-600"
+              />
+              Permessi di amministratore (sudo) nel desktop
+            </label>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Spenti di default: chi usa il desktop non può installare programmi né diventare root. Il
+              cambio vale subito, anche a desktop acceso.
+            </p>
+          </div>
 
           <form onSubmit={handleSaveLimits} className="flex flex-col gap-3 border-t border-slate-200 dark:border-slate-800 pt-4">
             <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Limiti risorse</p>

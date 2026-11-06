@@ -172,6 +172,76 @@ def _isolate_container(container, desktop_id: str) -> None:
             client.networks.get(other).disconnect(container)
 
 
+# ---- sudo per desktop ---------------------------------------------------------
+# Di default l'utente del desktop non ha sudo (come un dipendente su un PC
+# aziendale); l'admin lo accende per singolo desktop. Stesso meccanismo
+# dell'opzione DISABLE_SUDO di webtop (binario sudo senza permessi e regola
+# NOPASSWD resa inutilizzabile), ma applicato dal manager come root dentro il
+# container, cosi' si cambia senza ricreare il desktop. Va riapplicato a ogni
+# avvio: l'init dell'immagine rimette lo stato dato da DISABLE_SUDO (o, per i
+# desktop creati prima di questa opzione, riaccende sudo).
+SUDO_PATH = "/usr/bin/sudo"
+# Fuori dal gruppo sudo anche per polkit (pkexec, installazioni dal programma
+# grafico): l'immagine considera amministratori i membri di "sudo". L'init di
+# webtop non rimette abc nel gruppo agli avvii successivi.
+_SUDO_OFF = (
+    f'chmod 0000 {SUDO_PATH} && sed -i "s/NOPASSWD/CORRUPT_FILE/g" /etc/sudoers'
+    ' && { ! id -nG abc | grep -qw sudo || gpasswd -d abc sudo >/dev/null; }'
+)
+_SUDO_ON = (
+    f'chmod 4755 {SUDO_PATH} && sed -i "s/CORRUPT_FILE/NOPASSWD/g" /etc/sudoers'
+    " && usermod -aG sudo abc"
+)
+# Avvio del container (StartedAt) a cui e' gia' stato applicato lo stato di sudo.
+_sudo_applied: dict[str, str] = {}
+
+
+def apply_sudo(container, desktop_id: str) -> None:
+    container.reload()
+    if container.status != "running":
+        return
+    command = _SUDO_ON if desktops_store.get_sudo(desktop_id) else _SUDO_OFF
+    result = container.exec_run(["sh", "-c", command], user="root")
+    if result.exit_code != 0:
+        raise RuntimeError(
+            f"Impossibile impostare sudo nel desktop {desktop_id}: "
+            f"{result.output.decode(errors='replace').strip()}"
+        )
+    _sudo_applied[container.id] = container.attrs.get("State", {}).get("StartedAt", "")
+
+
+def _sudo_state_ok(container, desktop_id: str) -> bool:
+    out = container.exec_run(
+        ["sh", "-c", f"stat -L -c %a {SUDO_PATH}; id -nG abc"], user="root"
+    ).output.decode(errors="replace").split()
+    acceso = bool(out) and out[0] == "4755" and "sudo" in out[1:]
+    spento = bool(out) and out[0] == "0" and "sudo" not in out[1:]
+    return acceso if desktops_store.get_sudo(desktop_id) else spento
+
+
+def _apply_sudo_if_restarted(container, desktop_id: str) -> None:
+    """Dal controllo periodico: copre i riavvii fatti fuori dal manager
+    (Docker che riparte, restart policy) e, nei primi minuti dopo un avvio,
+    l'init dell'immagine che puo' sovrascrivere lo stato appena applicato:
+    li' controlla lo stato vero, non solo quello ricordato."""
+    if container.status != "running":
+        return
+    started = container.attrs.get("State", {}).get("StartedAt", "")
+    try:
+        recente = time.time() - _parse_docker_timestamp(started).timestamp() < 300
+    except (ValueError, AttributeError):
+        recente = True
+    if _sudo_applied.get(container.id) != started or (recente and not _sudo_state_ok(container, desktop_id)):
+        apply_sudo(container, desktop_id)
+
+
+def set_desktop_sudo(desktop_id: str, enabled: bool) -> None:
+    desktops_store.set_sudo(desktop_id, enabled)
+    container = _find_container(get_container_name(desktop_id))
+    if container is not None:
+        apply_sudo(container, desktop_id)
+
+
 def remove_desktop_network(desktop_id: str) -> None:
     try:
         net = client.networks.get(get_desktop_network_name(desktop_id))
@@ -196,6 +266,7 @@ def _reconcile_networks() -> None:
         container = _find_container(get_container_name(desktop_id))
         if container is not None:
             _isolate_container(container, desktop_id)
+            _apply_sudo_if_restarted(container, desktop_id)
     # Solo le reti di questa installazione (prefisso del nome): un'altra
     # installazione sullo stesso Docker ha le sue.
     for net in client.networks.list(filters={"label": "deskhub.desktop"}):
@@ -411,6 +482,7 @@ def get_desktop_info(desktop_id: str) -> DesktopInfo:
         max_ram_mb=limits["max_ram_mb"],
         max_cpus=limits["max_cpus"],
         idle_timeout_minutes=limits["idle_timeout_minutes"],
+        sudo_enabled=desktops_store.get_sudo(desktop_id),
     )
 
 
@@ -676,6 +748,11 @@ def create_desktop(
                 # sessione (vedi ensure_desktop_network).
                 "PUID": "1000",
                 "PGID": "1000",
+                # Sudo spento a ogni avvio dall'immagine stessa (opzione
+                # ufficiale di webtop): l'utente del desktop e' un utente
+                # normale. L'admin lo riaccende per singolo desktop, vedi
+                # apply_sudo.
+                "DISABLE_SUDO": "true",
                 # Niente SUBFOLDER: il container serve sempre se stesso sulla
                 # root (default dell'immagine quando la variabile e' assente).
                 # Non ha piu' bisogno di un percorso proprio, univoco per
@@ -707,6 +784,9 @@ def create_desktop(
         raise RuntimeError(f"Il container non risulta RUNNING.\n\nUltimi log:\n{logs}")
 
     _wait_service_ready(container, progress)
+    # Dopo l'init dell'immagine (che rimette lo stato di DISABLE_SUDO): prima
+    # verrebbe sovrascritto.
+    apply_sudo(container, desktop_id)
 
     return {"id": desktop_id}
 
@@ -742,6 +822,9 @@ def start_desktop(desktop_id: str, progress: Callable[[str], None]) -> dict:
         raise RuntimeError(f"Il container non risulta RUNNING.\n\nUltimi log:\n{logs}")
 
     _wait_service_ready(container, progress)
+    # Dopo l'init dell'immagine (che rimette lo stato di DISABLE_SUDO): prima
+    # verrebbe sovrascritto.
+    apply_sudo(container, desktop_id)
 
     return {}
 
@@ -785,6 +868,9 @@ def restart_desktop(desktop_id: str, progress: Callable[[str], None]) -> dict:
         raise RuntimeError(f"Il container non risulta RUNNING dopo il riavvio.\n\nUltimi log:\n{logs}")
 
     _wait_service_ready(container, progress)
+    # Dopo l'init dell'immagine (che rimette lo stato di DISABLE_SUDO): prima
+    # verrebbe sovrascritto.
+    apply_sudo(container, desktop_id)
 
     return {}
 

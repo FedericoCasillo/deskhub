@@ -60,6 +60,7 @@ server, i dati restano tuoi, il costo è solo quello dell'hardware.
 - Ogni desktop isolato su una rete Docker sua: da un desktop non si raggiungono gli altri desktop né il manager
 - URL di sessione opachi e a scadenza, validi solo insieme al login di chi li ha aperti: mai un percorso fisso o indovinabile verso un desktop
 - "Esci" e cambio password chiudono davvero le sessioni (lato server), non solo il cookie del browser
+- Chi usa un desktop è un utente normale, senza sudo: l'admin lo accende per singolo desktop
 - Spegnimento automatico configurabile dopo N minuti di esecuzione continua
 - Cartelle di configurazione protette: permessi o proprietario alterati da fuori bloccano l'avvio con un errore esplicito, invece di un fallimento silenzioso
 
@@ -221,6 +222,18 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
   sua rete. Gli endpoint `/internal/...` non hanno una rotta pubblica: li
   chiama solo Traefik dalla rete interna. Fermare, riavviare o eliminare un
   desktop revoca subito le sue sessioni aperte.
+- **Sudo spento di default.** Webtop di suo dà all'utente del desktop sudo
+  senza password (pensato per un desktop personale); in deskhub chi usa un
+  desktop è un utente normale, come un dipendente su un PC aziendale: niente
+  `sudo`, e fuori dal gruppo `sudo`, quindi niente root nemmeno da `pkexec` o
+  dalle installazioni grafiche. L'admin lo accende per il singolo desktop
+  che ne ha bisogno da "Dettagli" (vale subito, anche a desktop acceso; il
+  manager lo riapplica a ogni avvio). I programmi per tutti vanno
+  nell'immagine dei desktop (`webtop-image/`). I desktop creati prima di
+  questa opzione partono con sudo spento. Spegnere sudo a chi l'ha avuto non
+  toglie quello che può aver già fatto da root nel suo container: per
+  ripartire puliti si elimina il desktop mantenendo la configurazione e lo
+  si ricrea riusandola.
 - **Login revocabili.** Il cookie del manager (7 giorni, `HttpOnly`,
   `Secure`, `SameSite=Lax`) contiene solo l'id di un login registrato lato
   server: "Esci" lo cancella davvero, quindi un cookie copiato prima non vale

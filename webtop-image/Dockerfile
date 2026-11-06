@@ -52,7 +52,10 @@ COPY NOTICE-nginx.txt /defaults/NOTICE-nginx.txt
 # ridondanti con quelle del manager DeskHub: resta solo la sezione audio.
 # SELKIES_UI_SIDEBAR_SHOW_SOFT_BUTTONS nasconde la riga di tasti rapidi
 # Ctrl/Alt/Win/Tab/Esc, non necessaria (tastiera fisica o a schermo bastano).
+# SHELL: la sessione grafica parte senza, e Konsole all'apertura avvisava
+# "Impossibile trovare «», avvio di «/bin/bash» al suo posto".
 ENV TZ=Europe/Rome \
+    SHELL=/bin/bash \
     LC_ALL=it_IT.UTF-8 \
     NO_GAMEPAD=True \
     SELKIES_UI_TITLE=DeskHub \
@@ -79,3 +82,16 @@ ENV TZ=Europe/Rome \
     SELKIES_ENABLE_PLAYER2=False|locked \
     SELKIES_ENABLE_PLAYER3=False|locked \
     SELKIES_ENABLE_PLAYER4=False|locked
+
+# Sudo spento di default nei desktop (DISABLE_SUDO, vedi il manager): le tre
+# cose che /defaults/startwm_wayland.sh fa con sudo all'avvio della sessione
+# si fanno qui una volta per tutte, cosi' la sessione parte uguale anche
+# senza sudo (altrimenti: menu delle applicazioni vuoto e /tmp/.X11-unix
+# assente per Xwayland). Le stesse righe nello script restano, ma senza
+# sudo falliscono senza effetti.
+RUN rm -f /usr/share/dbus-1/system-services/org.freedesktop.UDisks2.service \
+ && if [ ! -f /etc/xdg/menus/applications.menu ]; then \
+      mv /etc/xdg/menus/plasma-applications.menu /etc/xdg/menus/applications.menu; \
+    fi \
+ && mkdir -p /tmp/.X11-unix \
+ && chmod 1777 /tmp/.X11-unix
