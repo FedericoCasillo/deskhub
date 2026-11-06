@@ -22,7 +22,7 @@ export default function InfoDrawer({ id, onClose }) {
   const [maxCpus, setMaxCpus] = useState("");
   const [idleTimeoutMinutes, setIdleTimeoutMinutes] = useState("");
   const [saving, setSaving] = useState(false);
-  const [savingSudo, setSavingSudo] = useState(false);
+  const [sudo, setSudo] = useState(false);
 
   function refresh() {
     api
@@ -32,13 +32,14 @@ export default function InfoDrawer({ id, onClose }) {
         setMaxRamMb(String(data.max_ram_mb));
         setMaxCpus(String(data.max_cpus));
         setIdleTimeoutMinutes(String(data.idle_timeout_minutes));
+        setSudo(data.sudo_enabled);
       })
       .catch((e) => setError(e.message));
   }
 
   useEffect(refresh, [id]);
 
-  function handleSaveLimits(event) {
+  function handleSave(event) {
     event.preventDefault();
     setError("");
     setSaving(true);
@@ -48,20 +49,10 @@ export default function InfoDrawer({ id, onClose }) {
         max_cpus: Number(maxCpus),
         idle_timeout_minutes: Number(idleTimeoutMinutes),
       })
+      .then(() => (sudo !== info.sudo_enabled ? api.setDesktopSudo(id, sudo) : null))
       .then(onClose)
       .catch((e) => setError(e.message))
       .finally(() => setSaving(false));
-  }
-
-  function handleToggleSudo(event) {
-    const enabled = event.target.checked;
-    setError("");
-    setSavingSudo(true);
-    api
-      .setDesktopSudo(id, enabled)
-      .then(setInfo)
-      .catch((e) => setError(e.message))
-      .finally(() => setSavingSudo(false));
   }
 
   return (
@@ -82,20 +73,7 @@ export default function InfoDrawer({ id, onClose }) {
             <Row label="Rete del desktop" value={info.network_present ? "Presente" : "Assente"} />
           </dl>
 
-          <div className="border-t border-slate-200 dark:border-slate-800 pt-4">
-            <label className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-              <input
-                type="checkbox"
-                checked={info.sudo_enabled}
-                disabled={savingSudo}
-                onChange={handleToggleSudo}
-                className="h-4 w-4 accent-emerald-600"
-              />
-              Permessi di amministratore nel desktop
-            </label>
-          </div>
-
-          <form onSubmit={handleSaveLimits} className="flex flex-col gap-3 border-t border-slate-200 dark:border-slate-800 pt-4">
+          <form onSubmit={handleSave} className="flex flex-col gap-3 border-t border-slate-200 dark:border-slate-800 pt-4">
             <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Limiti risorse</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -133,13 +111,22 @@ export default function InfoDrawer({ id, onClose }) {
                 className={inputClass}
               />
             </div>
+            <label className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <input
+                type="checkbox"
+                checked={sudo}
+                onChange={(e) => setSudo(e.target.checked)}
+                className="h-4 w-4 accent-emerald-600"
+              />
+              Permessi di amministratore nel desktop
+            </label>
             <div className="mt-1 flex justify-end">
               <button
                 type="submit"
                 disabled={saving}
                 className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-500 disabled:opacity-50"
               >
-                Salva limiti
+                Salva
               </button>
             </div>
           </form>

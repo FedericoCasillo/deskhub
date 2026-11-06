@@ -12,7 +12,7 @@ const THUMBNAIL_POLL_MS = 10000;
 // il dispositivo da cui e' aperto (orizzontale da PC, verticale da telefono).
 // La nuova immagine sostituisce la vecchia solo quando e' gia' scaricata:
 // niente lampeggi. In pausa quando la scheda del browser non e' visibile.
-export default function DesktopThumbnail({ id, status, available, onOpen, opening }) {
+export default function DesktopThumbnail({ id, status, available }) {
   const [src, setSrc] = useState(null);
   const [failed, setFailed] = useState(false);
   const active = status === "RUNNING" && available;
@@ -57,23 +57,14 @@ export default function DesktopThumbnail({ id, status, available, onOpen, openin
 
   const box = "relative flex aspect-[16/10] w-full items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800";
 
-  if (message) {
-    return (
-      <div className={box}>
-        <span className="px-4 text-center text-xs text-slate-500 dark:text-slate-400">{message}</span>
-      </div>
-    );
-  }
-
+  // Solo da guardare: il desktop si apre con "Apri".
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      disabled={opening}
-      title="Apri il desktop"
-      className={`${box} group cursor-pointer ring-emerald-500 transition hover:ring-2 disabled:cursor-wait`}
-    >
-      <img src={src} alt="Anteprima dello schermo" className="h-full w-full object-contain" draggable="false" />
-    </button>
+    <div className={box}>
+      {message ? (
+        <span className="px-4 text-center text-xs text-slate-500 dark:text-slate-400">{message}</span>
+      ) : (
+        <img src={src} alt="Anteprima dello schermo" className="h-full w-full object-contain" draggable="false" />
+      )}
+    </div>
   );
 }

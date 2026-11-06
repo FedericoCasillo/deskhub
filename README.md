@@ -45,7 +45,7 @@ server, i dati restano tuoi, il costo è solo quello dell'hardware.
 - Nome libero per ogni desktop (es. "web", "ufficio")
 - Riutilizzo di configurazioni orfane (container eliminato con dati mantenuti sul disco)
 - Limiti RAM/CPU e timeout di spegnimento automatico sempre attivi per desktop, con default globale e override per singolo desktop, modificabili anche a container già avviato
-- Anteprima dal vivo dello schermo in ogni card (aggiornata ogni 10 secondi, nella forma reale dello schermo: verticale se il desktop è aperto da un telefono in verticale); un clic la apre
+- Anteprima dal vivo dello schermo in ogni card (aggiornata ogni 10 secondi, nella forma reale dello schermo: verticale se il desktop è aperto da un telefono in verticale)
 
 **👥 Utenti e permessi**
 - Login gestito dalla webapp stessa: utenti, password, sessione via cookie
