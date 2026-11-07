@@ -189,17 +189,23 @@ fi
 
 if [ "$NEEDS_ADMIN_BOOTSTRAP" = "1" ]; then
   log "Configurazione dell'amministratore iniziale della webapp."
+  # Le risposte si leggono dal terminale, non da stdin: con
+  # "curl ... | bash" stdin e' lo script stesso, e read si mangerebbe le
+  # sue righe successive invece di aspettare l'utente.
+  if [ -z "${MANAGER_INITIAL_ADMIN_USER:-}" ] || [ -z "${MANAGER_INITIAL_ADMIN_PASSWORD:-}" ]; then
+    { : </dev/tty; } 2>/dev/null || die "Nessun terminale per chiedere le credenziali: imposta MANAGER_INITIAL_ADMIN_USER e MANAGER_INITIAL_ADMIN_PASSWORD."
+  fi
   MANAGER_INITIAL_ADMIN_USER="${MANAGER_INITIAL_ADMIN_USER:-}"
   if [ -z "$MANAGER_INITIAL_ADMIN_USER" ]; then
-    read -rp "Nome utente amministratore [admin]: " MANAGER_INITIAL_ADMIN_USER
+    read -rp "Nome utente amministratore [admin]: " MANAGER_INITIAL_ADMIN_USER </dev/tty
     MANAGER_INITIAL_ADMIN_USER="${MANAGER_INITIAL_ADMIN_USER:-admin}"
   fi
 
   MANAGER_INITIAL_ADMIN_PASSWORD="${MANAGER_INITIAL_ADMIN_PASSWORD:-}"
   if [ -z "$MANAGER_INITIAL_ADMIN_PASSWORD" ]; then
     while true; do
-      read -rsp "Password: " MANAGER_INITIAL_ADMIN_PASSWORD; echo
-      read -rsp "Conferma password: " MANAGER_INITIAL_ADMIN_PASSWORD_CONFIRM; echo
+      read -rsp "Password: " MANAGER_INITIAL_ADMIN_PASSWORD </dev/tty; echo
+      read -rsp "Conferma password: " MANAGER_INITIAL_ADMIN_PASSWORD_CONFIRM </dev/tty; echo
       [ "$MANAGER_INITIAL_ADMIN_PASSWORD" = "$MANAGER_INITIAL_ADMIN_PASSWORD_CONFIRM" ] && [ -n "$MANAGER_INITIAL_ADMIN_PASSWORD" ] && break
       warn "Le password non coincidono o sono vuote, riprova."
     done

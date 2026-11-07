@@ -5,6 +5,9 @@ import Modal from "./Modal";
 
 const RECONNECT_DELAY_MS = 1500;
 const MAX_RECONNECT_ATTEMPTS = 5;
+// Tre battiti del server (JOB_HEARTBEAT_SECONDS in backend/app/routers/ws.py)
+// mancati di fila.
+const WATCHDOG_MS = 35000;
 
 export default function ActionProgressModal({ title, jobId, onDone }) {
   const [lines, setLines] = useState([]);
@@ -15,44 +18,75 @@ export default function ActionProgressModal({ title, jobId, onDone }) {
   useEffect(() => {
     let socket;
     let reconnectTimer;
+    let watchdogTimer;
     let unmounted = false;
     let gotFinal = false;
     let attempts = 0;
 
+    // Il server manda un battito ogni ~10s anche quando il job non ha nulla
+    // da dire. Se non arriva niente per piu' battiti di fila la connessione
+    // e' morta in silenzio (proxy, NAT, antivirus che la tagliano senza
+    // chiuderla: il browser non se ne accorge e onclose non scatta mai), e
+    // l'esito finale non arriverebbe piu': si abbandona quel socket e se ne
+    // apre uno nuovo, che riceve di nuovo tutta la storia del job.
+    const resetWatchdog = () => {
+      clearTimeout(watchdogTimer);
+      watchdogTimer = setTimeout(() => {
+        const dead = socket;
+        dead.onmessage = null;
+        dead.onclose = null;
+        dead.close();
+        handleLost();
+      }, WATCHDOG_MS);
+    };
+
+    const handleLost = () => {
+      clearTimeout(watchdogTimer);
+      if (unmounted || gotFinal) return;
+      // Connessione persa prima dell'esito: il popup non e' chiudibile
+      // finche' non arriva uno stato finale (per non perdere di vista
+      // un'operazione ancora in corso), quindi senza riprovare l'utente
+      // restava bloccato per sempre su "In corso...". Il job continua a
+      // girare lato backend a prescindere dalla connessione, quindi ci si
+      // riconnette e si riprende da dove si era rimasti; solo se anche i
+      // tentativi falliscono si smette di bloccare l'interfaccia.
+      attempts += 1;
+      if (attempts > MAX_RECONNECT_ATTEMPTS) {
+        gotFinal = true;
+        setFinalStatus("error");
+        setFinalMessage(
+          "Connessione con il server persa: impossibile seguire l'esito dell'operazione. Controlla lo stato del desktop dalla lista."
+        );
+        return;
+      }
+      reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
+    };
+
     const connect = () => {
       socket = new WebSocket(wsUrl(`ws/jobs/${jobId}`));
+      // Il server rimanda tutta la storia del job a ogni connessione: si
+      // riparte da zero invece di accodarla a quella gia' mostrata.
+      let fresh = true;
+      resetWatchdog();
 
       socket.onmessage = (event) => {
+        resetWatchdog();
+        attempts = 0;
         const message = JSON.parse(event.data);
+        if (message.status === "ping") return;
         if (message.status === "progress") {
+          if (fresh) setLines([]);
+          fresh = false;
           setLines((prev) => [...prev, message.message]);
         } else {
           gotFinal = true;
+          clearTimeout(watchdogTimer);
           setFinalStatus(message.status);
           setFinalMessage(message.message);
         }
       };
 
-      socket.onclose = () => {
-        if (unmounted || gotFinal) return;
-        // Connessione persa prima dell'esito: il popup non e' chiudibile
-        // finche' non arriva uno stato finale (per non perdere di vista
-        // un'operazione ancora in corso), quindi senza riprovare l'utente
-        // restava bloccato per sempre su "In corso...". Il job continua a
-        // girare lato backend a prescindere dalla connessione, quindi ci si
-        // riconnette e si riprende da dove si era rimasti; solo se anche i
-        // tentativi falliscono si smette di bloccare l'interfaccia.
-        attempts += 1;
-        if (attempts > MAX_RECONNECT_ATTEMPTS) {
-          gotFinal = true;
-          setFinalStatus("error");
-          setFinalMessage(
-            "Connessione con il server persa: impossibile seguire l'esito dell'operazione. Controlla lo stato del desktop dalla lista."
-          );
-          return;
-        }
-        reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
-      };
+      socket.onclose = handleLost;
     };
 
     connect();
@@ -60,7 +94,11 @@ export default function ActionProgressModal({ title, jobId, onDone }) {
     return () => {
       unmounted = true;
       clearTimeout(reconnectTimer);
-      socket?.close();
+      clearTimeout(watchdogTimer);
+      if (socket) {
+        socket.onclose = null;
+        socket.close();
+      }
     };
   }, [jobId]);
 

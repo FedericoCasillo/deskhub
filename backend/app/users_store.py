@@ -25,6 +25,9 @@ def _save(data: dict) -> None:
     tmp_path = _path() + ".tmp"
     with open(tmp_path, "w") as f:
         json.dump(data, f, indent=2)
+    # Contiene gli hash delle password: leggibile solo dal proprietario,
+    # come .manager-logins.json.
+    os.chmod(tmp_path, 0o600)
     os.replace(tmp_path, _path())
 
 

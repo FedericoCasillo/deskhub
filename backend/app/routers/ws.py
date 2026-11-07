@@ -9,10 +9,19 @@ from app.security import get_ws_user
 
 router = APIRouter()
 
+# Il client considera morta la connessione dopo qualche battito mancato
+# (vedi ActionProgressModal): tenere i due valori allineati.
+JOB_HEARTBEAT_SECONDS = 10
+
 
 @router.websocket("/ws/jobs/{job_id}")
 async def job_progress(websocket: WebSocket, job_id: str):
     await websocket.accept()
+
+    # Il log di un job (nomi, percorsi, errori) solo a chi ha fatto login.
+    if get_ws_user(websocket) is None:
+        await websocket.close(code=1008)
+        return
 
     job = job_manager.get(job_id)
     if job is None:
@@ -23,7 +32,17 @@ async def job_progress(websocket: WebSocket, job_id: str):
     queue = job.subscribe()
     try:
         while True:
-            message = await queue.get()
+            try:
+                message = await asyncio.wait_for(queue.get(), JOB_HEARTBEAT_SECONDS)
+            except asyncio.TimeoutError:
+                # Battito durante i tratti muti del job (il pull dell'immagine
+                # al primo desktop resta minuti su "Downloading"/"Extracting"
+                # senza nuovi messaggi): tiene viva la connessione attraverso
+                # proxy/NAT e permette al client di accorgersi di una
+                # connessione morta in silenzio, invece di aspettare per
+                # sempre un esito che non gli arrivera'.
+                await websocket.send_json({"status": "ping"})
+                continue
             await websocket.send_json(message)
             if message["status"] in ("success", "error"):
                 break

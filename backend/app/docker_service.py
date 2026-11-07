@@ -51,7 +51,13 @@ def _mem_kwargs(max_ram_mb: int) -> dict:
     # 0 = nessun limite, sia in creazione (containers.run) che in
     # aggiornamento live (container.update): 0 e' il valore nativo
     # dell'API Docker per "Memory" quando non c'e' un tetto.
-    return {"mem_limit": f"{max_ram_mb}m" if max_ram_mb > 0 else 0}
+    if max_ram_mb <= 0:
+        return {"mem_limit": 0}
+    # Anche il tetto RAM+swap, esplicito: senza, Docker lo fissa al doppio
+    # della RAM solo alla creazione e poi rifiuta ogni aumento oltre quel
+    # valore ("Memory limit should be smaller than already set memoryswap
+    # limit"). Stesso rapporto del default di Docker, ma che segue la RAM.
+    return {"mem_limit": f"{max_ram_mb}m", "memswap_limit": f"{max_ram_mb * 2}m"}
 
 
 def _cpu_kwargs(max_cpus: float) -> dict:
