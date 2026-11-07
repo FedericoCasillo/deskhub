@@ -6,7 +6,7 @@ import Modal from "./Modal";
 function Field({ label, children }) {
   return (
     <div>
-      <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">{label}</label>
+      <label className="mb-1 block text-xs text-slate-500 dark:text-slate-400">{label}</label>
       {children}
     </div>
   );
