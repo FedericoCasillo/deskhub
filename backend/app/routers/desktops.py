@@ -160,7 +160,9 @@ async def create_desktop(payload: CreateDesktopRequest, admin: dict = Depends(re
     desktops_store.set_owner(target_id, payload.owner)
     desktops_store.set_name(target_id, name)
     desktops_store.set_limits(target_id, max_ram_mb, max_cpus, idle_timeout_minutes)
-    if payload.reuse_id is None:
+    if payload.sudo_enabled is not None:
+        desktops_store.set_sudo(target_id, payload.sudo_enabled)
+    elif payload.reuse_id is None:
         # Un desktop riusato tiene il sudo che aveva.
         desktops_store.set_sudo(target_id, defaults["default_sudo"])
 

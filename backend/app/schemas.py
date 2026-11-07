@@ -65,6 +65,9 @@ class CreateDesktopRequest(BaseModel):
     # come max_ram_mb/max_cpus sopra. 0 = spegnimento automatico disabilitato
     # per questo desktop.
     idle_timeout_minutes: Optional[int] = Field(default=None, ge=0, le=1440)
+    # None = default globale (Settings) per un desktop nuovo, sudo di prima
+    # per una configurazione riusata.
+    sudo_enabled: Optional[bool] = None
 
 
 class DesktopSudoPayload(BaseModel):

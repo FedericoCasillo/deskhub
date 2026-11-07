@@ -164,8 +164,9 @@ eventualmente un limite RAM/CPU o uno spegnimento automatico diversi dal
 default globale. L'identificativo
 interno e la cartella di configurazione diventano `<proprietario>-<nome>`
 (es. `mario-web`), con un suffisso numerico in caso di doppioni
-(`mario-web-2`, ...). Sudo nel desktop segue il default delle impostazioni
-(⚙) e si cambia poi da "Dettagli".
+(`mario-web-2`, ...). La casella "Permessi di amministratore nel desktop"
+(sudo) parte dal default delle impostazioni (⚙); dopo si cambia da
+"Dettagli".
 
 </details>
 
@@ -235,8 +236,8 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
   desktop è un utente normale: niente
   `sudo`, e fuori dal gruppo `sudo`, quindi niente root nemmeno da `pkexec` o
   dalle installazioni grafiche. Il default per i desktop nuovi è nelle
-  impostazioni (⚙), spento di fabbrica; per il singolo desktop si cambia da
-  "Dettagli" (vale subito, anche a desktop acceso; il manager lo riapplica a
+  impostazioni (⚙), spento di fabbrica; per il singolo desktop si sceglie
+  alla creazione e si cambia da "Dettagli" (vale subito, anche a desktop acceso; il manager lo riapplica a
   ogni avvio). I programmi per tutti vanno
   nell'immagine dei desktop (`webtop-image/`).
 - **Anteprime.** <a id="anteprime"></a>Ogni card mostra lo schermo del
@@ -247,7 +248,9 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
   pulsante "Apri". Quando la scheda del manager non è in
   primo piano le anteprime si fermano. La miniatura la fa il desktop stesso con la cattura di
   pixelflux (il motore di Selkies, variabile `PIXELFLUX_CU`), e il manager
-  la prende con `docker exec`, non dalla rete. Quel servizio (porta 5000 nel
+  la prende con `docker exec`, non dalla rete, per sicurezza: prenderla via
+  rete vorrebbe dire collegare il manager alla rete di ogni desktop, e da un
+  desktop si arriverebbe al manager. Quel servizio (porta 5000 nel
   container) permette anche di comandare mouse e tastiera: lo raggiungono
   solo il desktop stesso e Traefik, che non ha nessuna rotta verso quella
   porta. La miniatura la vedono il proprietario e l'admin; il manager la
