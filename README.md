@@ -45,17 +45,22 @@ server, i dati restano tuoi, il costo è solo quello dell'hardware.
 - Nome libero per ogni desktop (es. "web", "ufficio")
 - Riutilizzo di configurazioni orfane (container eliminato con dati mantenuti sul disco)
 - Limiti RAM/CPU e timeout di spegnimento automatico sempre attivi per desktop, con default globale e override per singolo desktop, modificabili anche a container già avviato
-- Anteprima dal vivo dello schermo in ogni card (aggiornata ogni 10 secondi, nella forma reale dello schermo: verticale se il desktop è aperto da un telefono in verticale)
+- "Apri" porta il desktop in una nuova scheda del browser, alla risoluzione del dispositivo (anche da telefono)
+- Anteprima dal vivo dello schermo in ogni card, sempre attiva (vedi [Anteprime](#anteprime))
+- Assistenza: l'admin può aprire il desktop di un utente mentre lui lo sta usando — vedono la stessa schermata e comandano entrambi mouse e tastiera
+- Permessi di amministratore (sudo) nel desktop spenti di default, attivabili per singolo desktop
 
 **👥 Utenti e permessi**
 - Login gestito dalla webapp stessa: utenti, password, sessione via cookie
 - Due ruoli — **admin** (crea/elimina/log/dettagli, gestisce utenti, vede lo stato aggregato di tutti) e **utente** (avvia/ferma/riavvia/apre solo i propri desktop)
-- Un utente vede solo ciò che gli appartiene: mai desktop, conteggi o metriche altrui
+- Un utente vede solo ciò che gli appartiene: mai desktop, anteprime, conteggi o metriche altrui
+- Gestione utenti dall'admin (pulsante "Utenti"): creazione, reset password, eliminazione; ognuno può cambiare la propria password
 - Tema chiaro/scuro con switch, per admin e utenti: eredita il tema del dispositivo finché non lo si sceglie esplicitamente, poi ricorda la scelta
 
 **📊 Monitoraggio**
 - CPU e RAM in tempo reale per singolo desktop e in totale aggregato su tutta la flotta
 - Conteggio dal vivo di desktop in esecuzione, fermi e orfani
+- Per l'admin: log del container dal vivo ("Log") e scheda "Dettagli" con stato, container, cartella di configurazione, rete, limiti e sudo del desktop
 
 **🔒 Sicurezza e privacy**
 - Ogni desktop isolato su una rete Docker sua: da un desktop non si raggiungono gli altri desktop né il manager
@@ -155,10 +160,12 @@ se serve) e ne assegna la proprietà all'utente che lancia lo script.
 
 Dalla dashboard admin, "+ Nuovo desktop": scegli il proprietario, dai un
 nome al desktop (diventa anche il nome che vedrà l'utente sulla sua card) ed
-eventualmente un limite RAM/CPU diverso dal default globale. L'identificativo
+eventualmente un limite RAM/CPU o uno spegnimento automatico diversi dal
+default globale. L'identificativo
 interno e la cartella di configurazione diventano `<proprietario>-<nome>`
 (es. `mario-web`), con un suffisso numerico in caso di doppioni
-(`mario-web-2`, ...).
+(`mario-web-2`, ...). Sudo nel desktop segue il default delle impostazioni
+(⚙) e si cambia poi da "Dettagli".
 
 </details>
 
@@ -183,7 +190,7 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
   (crea/elimina/vede i log e le info di ogni desktop, gestisce gli utenti,
   vede i conteggi RUN/STOP/ORPH e l'uso CPU/RAM aggregato di tutti i desktop
   di tutti gli utenti) e **utente** (vede e opera solo sui desktop assegnati
-  a lui — avvia, ferma, riavvia, apre — niente creazione, eliminazione, log,
+  a lui — avvia, ferma, riavvia, apre, ne vede le anteprime — niente creazione, eliminazione, log,
   né i conteggi/uso complessivi, che riguardano desktop che potrebbe non
   aver mai visto).
 - **Immagine desktop**: Ubuntu + KDE Plasma via
@@ -236,7 +243,13 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
   toglie quello che può aver già fatto da root nel suo container: per
   ripartire puliti si elimina il desktop mantenendo la configurazione e lo
   si ricrea riusandola.
-- **Anteprime.** La miniatura la fa il desktop stesso con la cattura di
+- **Anteprime.** <a id="anteprime"></a>Ogni card mostra lo schermo del
+  desktop acceso, aggiornato ogni 10 secondi. L'anteprima ha la forma reale
+  dello schermo, che segue il dispositivo da cui il desktop è aperto
+  (verticale da un telefono in verticale): sta per intero nel riquadro, e lo
+  spazio che avanza resta grigio. È solo da guardare: il desktop si apre col
+  pulsante "Apri". Non si può spegnere. Quando la scheda del manager non è in
+  primo piano le anteprime si fermano. La miniatura la fa il desktop stesso con la cattura di
   pixelflux (il motore di Selkies, variabile `PIXELFLUX_CU`), e il manager
   la prende con `docker exec`, non dalla rete. Quel servizio (porta 5000 nel
   container) permette anche di comandare mouse e tastiera: lo raggiungono
