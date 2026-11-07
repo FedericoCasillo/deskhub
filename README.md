@@ -232,23 +232,19 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
   desktop revoca subito le sue sessioni aperte.
 - **Sudo spento di default.** Webtop di suo dà all'utente del desktop sudo
   senza password (pensato per un desktop personale); in deskhub chi usa un
-  desktop è un utente normale, come un dipendente su un PC aziendale: niente
+  desktop è un utente normale: niente
   `sudo`, e fuori dal gruppo `sudo`, quindi niente root nemmeno da `pkexec` o
   dalle installazioni grafiche. Il default per i desktop nuovi è nelle
   impostazioni (⚙), spento di fabbrica; per il singolo desktop si cambia da
   "Dettagli" (vale subito, anche a desktop acceso; il manager lo riapplica a
   ogni avvio). I programmi per tutti vanno
-  nell'immagine dei desktop (`webtop-image/`). I desktop creati prima di
-  questa opzione partono con sudo spento. Spegnere sudo a chi l'ha avuto non
-  toglie quello che può aver già fatto da root nel suo container: per
-  ripartire puliti si elimina il desktop mantenendo la configurazione e lo
-  si ricrea riusandola.
+  nell'immagine dei desktop (`webtop-image/`).
 - **Anteprime.** <a id="anteprime"></a>Ogni card mostra lo schermo del
   desktop acceso, aggiornato ogni 10 secondi. L'anteprima ha la forma reale
   dello schermo, che segue il dispositivo da cui il desktop è aperto
   (verticale da un telefono in verticale): sta per intero nel riquadro, e lo
   spazio che avanza resta grigio. È solo da guardare: il desktop si apre col
-  pulsante "Apri". Non si può spegnere. Quando la scheda del manager non è in
+  pulsante "Apri". Quando la scheda del manager non è in
   primo piano le anteprime si fermano. La miniatura la fa il desktop stesso con la cattura di
   pixelflux (il motore di Selkies, variabile `PIXELFLUX_CU`), e il manager
   la prende con `docker exec`, non dalla rete. Quel servizio (porta 5000 nel
@@ -256,10 +252,7 @@ interno e la cartella di configurazione diventano `<proprietario>-<nome>`
   solo il desktop stesso e Traefik, che non ha nessuna rotta verso quella
   porta. La miniatura la vedono il proprietario e l'admin; il manager la
   rifà al massimo ogni 10 secondi per desktop, e solo se qualcuno la sta
-  guardando. I desktop creati prima delle anteprime non ce l'hanno: si
-  eliminano mantenendo la configurazione e si ricreano riusandola. Mostrare lo schermo dei desktop è un controllo a distanza:
-  se i desktop sono di dipendenti, valgono le regole sul controllo dei
-  lavoratori (in Italia l'art. 4 dello Statuto dei lavoratori).
+  guardando.
 - **Login revocabili.** Il cookie del manager (7 giorni, `HttpOnly`,
   `Secure`, `SameSite=Lax`) contiene solo l'id di un login registrato lato
   server: "Esci" lo cancella davvero, quindi un cookie copiato prima non vale
